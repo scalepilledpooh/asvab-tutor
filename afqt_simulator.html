@@ -1,0 +1,1226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>AFQT Practice Simulator</title>
+<style>
+  :root {
+    --bg: #f4f6f8;
+    --panel: #ffffff;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --line: #d1d5db;
+    --accent: #1d4ed8;
+    --accent-soft: #dbeafe;
+    --good: #166534;
+    --good-soft: #dcfce7;
+    --warn: #92400e;
+    --warn-soft: #fef3c7;
+    --bad: #991b1b;
+    --bad-soft: #fee2e2;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: var(--bg); color: var(--text); }
+  .app { max-width: 1100px; margin: 0 auto; padding: 20px; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
+  h1, h2, h3 { margin-top: 0; }
+  .subtle { color: var(--muted); }
+  .grid { display: grid; gap: 16px; }
+  .grid.two { grid-template-columns: 1.2fr 0.8fr; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  label { font-weight: 600; display: block; margin-bottom: 6px; }
+  select, textarea { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); font-size: 14px; background: #fff; }
+  textarea { min-height: 180px; resize: vertical; }
+  .btn { border: 1px solid var(--line); background: white; padding: 10px 14px; border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 14px; font-family: inherit; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: white; }
+  .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+  .pill { display: inline-block; padding: 6px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 700; margin-right: 8px; }
+  .progress-wrap { background: #e5e7eb; border-radius: 4px; height: 6px; margin-bottom: 10px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.3s ease; }
+  .exam-shell { background: #fff; border: 1px solid #9ca3af; min-height: 640px; display: grid; grid-template-columns: 1fr 280px; }
+  .exam-main { padding: 18px 24px 80px 24px; position: relative; }
+  .exam-side { border-left: 1px solid var(--line); background: #fafafa; padding: 16px; }
+  .question-header { color: #1e3a8a; font-size: 28px; font-weight: 700; text-align: center; margin: 8px 0 4px; }
+  .question-meta { text-align: center; font-size: 14px; color: var(--muted); margin-bottom: 12px; }
+  .question-stem { font-size: 22px; line-height: 1.55; white-space: pre-wrap; margin: 16px auto 18px; max-width: 760px; }
+  .choices { max-width: 760px; margin: 0 auto; display: grid; gap: 12px; }
+  .choice { display: grid; grid-template-columns: 56px 1fr; align-items: stretch; border: 1px solid #9ca3af; border-radius: 8px; overflow: hidden; background: white; cursor: pointer; text-align: left; font-family: inherit; }
+  .choice:hover { border-color: var(--accent); }
+  .choice.selected { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .choice-letter { background: #f3f4f6; border-right: 1px solid #d1d5db; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 22px; }
+  .choice-text { padding: 16px; font-size: 20px; line-height: 1.4; }
+  .bottom-bar { position: absolute; left: 0; right: 0; bottom: 0; border-top: 1px solid var(--line); background: #fff; display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; }
+  .status-box { font-size: 14px; color: var(--muted); text-align: right; min-width: 120px; }
+  .status-box.warn-time { color: var(--warn); font-weight: 700; }
+  .status-box.danger-time { color: var(--bad); font-weight: 700; }
+  .mini { font-size: 12px; color: var(--muted); }
+  .review-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 6px; }
+  .qchip { border: 1px solid var(--line); background: white; border-radius: 8px; padding: 8px 0; text-align: center; font-weight: 700; font-size: 13px; cursor: pointer; font-family: inherit; }
+  .qchip.answered { background: var(--good-soft); border-color: #86efac; color: var(--good); }
+  .qchip.flagged { background: var(--warn-soft); border-color: #fcd34d; color: var(--warn); }
+  .qchip.current { outline: 3px solid var(--accent-soft); border-color: var(--accent); }
+  .results-table { width: 100%; border-collapse: collapse; }
+  .results-table th, .results-table td { border-bottom: 1px solid var(--line); padding: 10px; text-align: left; }
+  .topic-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  .topic-table th, .topic-table td { border-bottom: 1px solid var(--line); padding: 8px; text-align: left; font-size: 14px; }
+  .note { padding: 12px 14px; border-radius: 10px; background: #f8fafc; border: 1px solid var(--line); }
+  .warning { background: var(--warn-soft); border: 1px solid #fcd34d; }
+  .danger { background: var(--bad-soft); border: 1px solid #fecaca; }
+  .success { background: var(--good-soft); border: 1px solid #86efac; }
+  .muted-list li { margin-bottom: 6px; color: var(--muted); }
+  .score-bar-wrap { background: #e5e7eb; border-radius: 4px; height: 10px; width: 120px; overflow: hidden; display: inline-block; vertical-align: middle; }
+  .score-bar { height: 100%; border-radius: 4px; background: var(--accent); }
+  .score-bar.mid { background: #f59e0b; }
+  .score-bar.low { background: #ef4444; }
+  .transition-card { max-width: 560px; margin: 60px auto; text-align: center; }
+  .transition-card h2 { font-size: 28px; color: #1e3a8a; }
+  .big-score { font-size: 48px; font-weight: 700; margin: 12px 0; }
+  @media (max-width: 900px) {
+    .grid.two { grid-template-columns: 1fr; }
+    .exam-shell { grid-template-columns: 1fr; }
+    .exam-side { border-left: none; border-top: 1px solid var(--line); }
+    .question-stem { font-size: 19px; }
+    .choice-text { font-size: 17px; }
+    .question-header { font-size: 22px; }
+  }
+  /* ── iPhone / small-screen ─────────────────────────────────────────── */
+  @media (max-width: 480px) {
+    .app { padding: 10px 6px; }
+    .card { padding: 14px 12px; border-radius: 10px; }
+    /* Exam layout */
+    .exam-shell { min-height: auto; border-radius: 10px; }
+    .exam-main { padding: 10px 10px 84px 10px; }
+    .question-header { font-size: 17px; margin: 4px 0 2px; }
+    .question-meta { font-size: 12px; margin-bottom: 8px; }
+    .question-stem { font-size: 16px; line-height: 1.5; margin: 10px 0 14px; }
+    /* Choices — large tap targets */
+    .choices { gap: 10px; }
+    .choice { grid-template-columns: 46px 1fr; min-height: 56px; border-radius: 10px; }
+    .choice-letter { font-size: 18px; }
+    .choice-text { font-size: 16px; padding: 14px 10px; }
+    /* Bottom bar */
+    .bottom-bar { padding: 8px 10px; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+    .bottom-bar .row { gap: 8px; }
+    .btn { padding: 12px 14px; min-height: 44px; font-size: 14px; }
+    .status-box { font-size: 13px; min-width: 80px; }
+    /* Sidebar — compact on mobile: hide notes + keyboard hints */
+    .exam-side { padding: 10px; }
+    .exam-side .note:first-of-type { display: none; }  /* scratchpad */
+    .exam-side .note.mini { display: none; }           /* keyboard shortcuts */
+    /* Setup screen */
+    h1 { font-size: 22px; }
+    h2 { font-size: 18px; }
+    select, textarea { font-size: 16px; } /* prevents iOS auto-zoom */
+    .big-score { font-size: 38px; }
+    .transition-card { margin: 30px auto; }
+    /* Results */
+    .results-table th, .results-table td { padding: 8px 6px; font-size: 13px; }
+    .topic-table th, .topic-table td { font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- SETUP SCREEN -->
+<div id="setupScreen" class="screen active">
+  <div class="grid two">
+    <div class="card">
+      <h1>AFQT Practice Simulator</h1>
+      <p class="subtle">A tutor-friendly mock exam for the four AFQT subtests: Arithmetic Reasoning, Word Knowledge, Paragraph Comprehension, and Mathematics Knowledge.</p>
+      <div class="note warning" style="margin-bottom:16px;">
+        This simulator uses <strong>original representative practice items</strong>, not controlled operational ASVAB questions. Scores are <strong>practice raw scores only</strong> — not official AFQT percentiles.
+      </div>
+      <div class="grid">
+        <div>
+          <label for="sessionType">Session type</label>
+          <select id="sessionType">
+            <option value="FULL">Full AFQT practice (AR + WK + PC + MK)</option>
+            <option value="AR">Arithmetic Reasoning only</option>
+            <option value="WK">Word Knowledge only</option>
+            <option value="PC">Paragraph Comprehension only</option>
+            <option value="MK">Mathematics Knowledge only</option>
+          </select>
+        </div>
+        <div>
+          <label for="mode">Mode</label>
+          <select id="mode">
+            <option value="realistic">CAT-like practice (no backtracking within a section)</option>
+            <option value="tutor">Tutor mode (flag / review / change answers before submit)</option>
+          </select>
+        </div>
+        <div>
+          <label for="timerMode">Timer</label>
+          <select id="timerMode">
+            <option value="standard">Standard section timers</option>
+            <option value="1.5">1.5x time</option>
+            <option value="2">2x time</option>
+            <option value="3">3x time</option>
+            <option value="off">Timer off</option>
+          </select>
+        </div>
+        <div class="note">
+          <strong>Standard section times (official CAT-ASVAB)</strong><br>
+          AR: 55 min &nbsp;-&nbsp; WK: 9 min &nbsp;-&nbsp; PC: 27 min &nbsp;-&nbsp; MK: 31 min
+        </div>
+        <div>
+          <label for="studentName">Student name <span style="font-weight:400;color:var(--muted)">(logged with results)</span></label>
+          <input type="text" id="studentName" placeholder="e.g. Marcus" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);font-size:16px;font-family:inherit;" />
+        </div>
+        <div class="row">
+          <button class="btn primary" id="startBtn">Start session</button>
+          <button class="btn" id="demoTutorBtn">Quick start: Tutor + full AFQT + timer off</button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Scratchpad / whiteboard</h2>
+      <p class="subtle">Vocab misses, math patterns, pacing notes. Persists across sessions via browser storage.</p>
+      <textarea id="globalNotes" placeholder="Example:
+- Review percent word problems
+- Missed 'reluctant'
+- Trouble extracting main idea quickly"></textarea>
+      <div class="row" style="margin-top:12px;">
+        <button class="btn" id="saveNotesBtn">Save notes</button>
+        <span class="mini" id="saveNotesMsg"></span>
+      </div>
+      <hr style="border:none;border-top:1px solid var(--line);margin:18px 0;">
+      <h3>Mode guide</h3>
+      <ul class="muted-list">
+        <li><strong>CAT-like</strong>: one item at a time, no backtracking after submission.</li>
+        <li><strong>Tutor mode</strong>: flagging, review, and answer changes before final submit.</li>
+        <li><strong>Question bank</strong>: 30 items per section; each session draws 15 AR, 15 WK, 10 PC, 15 MK.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- SECTION TRANSITION SCREEN -->
+<div id="transitionScreen" class="screen">
+  <div class="card transition-card">
+    <div class="pill">Section complete</div>
+    <h2 id="transCompleteName"></h2>
+    <div class="big-score" id="transScore"></div>
+    <div id="transScoreDetail" style="color:var(--muted);margin-bottom:24px;"></div>
+    <p id="transNextLabel" style="font-size:16px;color:var(--muted);margin-bottom:24px;"></p>
+    <button class="btn primary" id="transBeginBtn" style="font-size:16px;padding:14px 32px;">Begin next section</button>
+  </div>
+</div>
+
+<!-- EXAM SCREEN -->
+<div id="examScreen" class="screen">
+  <div class="exam-shell">
+    <div class="exam-main">
+      <div style="max-width:760px;margin:0 auto;">
+        <div class="progress-wrap"><div class="progress-fill" id="progressFill"></div></div>
+      </div>
+      <div class="question-header" id="sectionTitle"></div>
+      <div class="question-meta" id="sectionMeta"></div>
+      <div class="question-stem" id="questionStem"></div>
+      <div class="choices" id="choices"></div>
+      <div class="bottom-bar">
+        <div class="row">
+          <button class="btn" id="prevBtn">Previous</button>
+          <button class="btn" id="flagBtn">Flag</button>
+          <button class="btn primary" id="nextBtn" disabled>Next</button>
+        </div>
+        <div class="status-box" id="statusBox">
+          <div id="statusTime"></div>
+          <div id="statusCount"></div>
+        </div>
+      </div>
+    </div>
+    <aside class="exam-side">
+      <div style="margin-bottom:12px;">
+        <span class="pill" id="modeBadge">Mode</span>
+        <span class="pill" id="timerBadge">Timer</span>
+      </div>
+      <div class="note" style="margin-bottom:12px;">
+        <strong>Scratchpad</strong>
+        <textarea id="inlineNotes" style="min-height:120px;margin-top:6px;" placeholder="Vocab misses, math patterns, tutoring notes..."></textarea>
+      </div>
+      <h3 style="margin-bottom:4px;font-size:14px;">Question map</h3>
+      <div class="mini" id="qmapNote" style="margin-bottom:8px;">Tutor mode: click to jump.</div>
+      <div class="review-grid" id="reviewGrid"></div>
+      <hr style="border:none;border-top:1px solid var(--line);margin:14px 0;">
+      <div class="note mini">
+        Keyboard shortcuts:<br>
+        <strong>A / B / C / D</strong> = select answer<br>
+        <strong>N</strong> = next &nbsp;|&nbsp; <strong>F</strong> = flag &nbsp;|&nbsp; <strong>P</strong> = previous (tutor)
+      </div>
+    </aside>
+  </div>
+</div>
+
+<!-- SECTION REVIEW SCREEN (tutor mode) -->
+<div id="sectionReviewScreen" class="screen">
+  <div class="card">
+    <h2 id="reviewTitle">Section review</h2>
+    <p class="subtle">Tutor mode: review unanswered or flagged items before submitting this section.</p>
+    <div class="review-grid" id="finalReviewGrid" style="margin:16px 0 16px;"></div>
+    <div class="row mini" style="margin-bottom:16px;gap:8px;">
+      <span style="background:var(--good-soft);border:1px solid #86efac;padding:3px 10px;border-radius:6px;color:var(--good);">Answered</span>
+      <span style="background:var(--warn-soft);border:1px solid #fcd34d;padding:3px 10px;border-radius:6px;color:var(--warn);">Flagged</span>
+      <span style="background:#fff;border:1px solid var(--line);padding:3px 10px;border-radius:6px;">Unanswered</span>
+    </div>
+    <div class="row">
+      <button class="btn" id="returnToSectionBtn">Return to section</button>
+      <button class="btn primary" id="submitSectionBtn">Submit section</button>
+    </div>
+  </div>
+</div>
+
+<!-- RESULTS SCREEN -->
+<div id="resultsScreen" class="screen">
+  <div class="card">
+    <h1>Session results</h1>
+    <div class="note danger" style="margin-bottom:16px;">
+      <strong>Important:</strong> this is a practice raw score only. Official AFQT scoring uses standardized subtest scores and percentile conversion, not simple raw percentages.
+    </div>
+    <table class="results-table" id="resultsTable"></table>
+    <div id="overallSummary" class="note" style="margin-top:16px;"></div>
+    <div id="topicBreakdown" style="margin-top:20px;"></div>
+    <div id="flaggedItemsWrap" style="margin-top:20px;"></div>
+    <div id="missedItemsWrap" style="margin-top:20px;"></div>
+    <div class="row" style="margin-top:20px;">
+      <button class="btn" id="restartBtn">Back to setup</button>
+      <button class="btn primary" id="shareBtn">📤 Share with tutor</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- .app -->
+<script>
+"use strict";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// QUESTION BANK  (answer = 0-based index: 0=A, 1=B, 2=C, 3=D)
+// All content is application data authored here; no user input enters the DOM
+// via this bank. Interactive user content (scratchpad) only flows through
+// textarea.value and is never injected into the DOM as HTML.
+// ─────────────────────────────────────────────────────────────────────────────
+const QUESTION_BANK = [
+  // AR ─────────────────────────────────────────────────────────────────────
+  {id:"AR1",  section:"AR", topic:"fractions",    stem:"A baker uses 3/4 cup of sugar for one batch of muffins. How much sugar is needed for 6 batches?",                        choices:["3 cups","4 1/2 cups","5 cups","6 cups"],                              answer:1, explanation:"3/4 x 6 = 18/4 = 4 1/2."},
+  {id:"AR2",  section:"AR", topic:"money",         stem:"A store sells notebooks for $2.40 each. If Lina buys 5 notebooks and pays with a $20 bill, how much change should she receive?", choices:["$6.00","$7.20","$8.00","$8.40"],                        answer:2, explanation:"5 x $2.40 = $12.00; $20.00 - $12.00 = $8.00."},
+  {id:"AR3",  section:"AR", topic:"rates_ratios",  stem:"One out of every 8 students in a club is a senior. If the club has 96 students, how many are NOT seniors?",             choices:["12","72","84","88"],                                                 answer:2, explanation:"Seniors = 96 / 8 = 12, so not seniors = 96 - 12 = 84."},
+  {id:"AR4",  section:"AR", topic:"time_distance", stem:"A runner jogs 3.5 miles each day for 4 days. How many total miles does the runner jog?",                                choices:["7","10.5","12","14"],                                                answer:3, explanation:"3.5 x 4 = 14."},
+  {id:"AR5",  section:"AR", topic:"rates_ratios",  stem:"A recipe needs 2 eggs for every 3 servings. How many eggs are needed for 18 servings?",                                 choices:["6","9","12","15"],                                                   answer:2, explanation:"18 servings is 6 groups of 3, so 6 x 2 = 12 eggs."},
+  {id:"AR6",  section:"AR", topic:"time_distance", stem:"A car travels 180 miles in 3 hours at a constant rate. At that rate, how far will it travel in 5 hours?",              choices:["240 miles","270 miles","300 miles","360 miles"],                      answer:2, explanation:"Rate = 180 / 3 = 60 mph; 60 x 5 = 300 miles."},
+  {id:"AR7",  section:"AR", topic:"percentages",   stem:"A jacket originally costs $80 and is on sale for 25% off. What is the sale price?",                                     choices:["$55","$60","$62","$65"],                                             answer:1, explanation:"25% of $80 is $20, so the sale price is $60."},
+  {id:"AR8",  section:"AR", topic:"money",         stem:"Maria deposits $500 in a savings account that earns 6% simple interest for 1 year. How much money will be in the account at the end of the year?", choices:["$506","$530","$536","$560"],          answer:1, explanation:"Interest = 0.06 x 500 = $30; total = $530."},
+  {id:"AR9",  section:"AR", topic:"percentages",   stem:"A box contains red, blue, and green marbles. If 30% are red and 20% are blue, what percent are green?",                choices:["40%","45%","50%","55%"],                                             answer:2, explanation:"100% - 30% - 20% = 50%."},
+  {id:"AR10", section:"AR", topic:"rates_ratios",  stem:"A school bus can seat 48 students. If 5 buses are filled to capacity, how many students can they carry altogether?",   choices:["180","220","240","250"],                                             answer:2, explanation:"48 x 5 = 240."},
+  {id:"AR11", section:"AR", topic:"money",         stem:"Nina worked 7.5 hours on Monday and 6.5 hours on Tuesday. If she earns $16 per hour, how much did she earn total for those 2 days?", choices:["$208","$214","$224","$240"],                        answer:2, explanation:"Total hours = 14; 14 x $16 = $224."},
+  {id:"AR12", section:"AR", topic:"fractions",     stem:"A piece of rope 24 feet long is cut into sections that are each 1.5 feet long. How many sections are made?",           choices:["12","14","16","18"],                                                 answer:2, explanation:"24 / 1.5 = 16."},
+  {id:"AR13", section:"AR", topic:"rates_ratios",  stem:"A map uses a scale of 1 inch = 20 miles. Two towns are 3.5 inches apart on the map. How far apart are the towns?",   choices:["55 miles","60 miles","65 miles","70 miles"],                         answer:3, explanation:"3.5 x 20 = 70 miles."},
+  {id:"AR14", section:"AR", topic:"fractions",     stem:"A tank is 3/5 full and contains 48 gallons. How many gallons can the full tank hold?",                                  choices:["60","72","80","96"],                                                 answer:2, explanation:"48 is 3/5 of the tank, so total = 48 x 5/3 = 80."},
+  {id:"AR15", section:"AR", topic:"money",         stem:"A contractor buys 14 boards at $7 each and a box of nails for $18. What is the total cost before tax?",                choices:["$98","$106","$112","$116"],                                          answer:3, explanation:"14 x $7 = $98; $98 + $18 = $116."},
+  {id:"AR16", section:"AR", topic:"time_distance", stem:"A train travels at 90 mph. How many minutes does it take to travel 45 miles?",                                          choices:["15 min","20 min","30 min","45 min"],                                 answer:2, explanation:"45 / 90 = 0.5 hours x 60 = 30 minutes."},
+  {id:"AR17", section:"AR", topic:"rates_ratios",  stem:"A pump fills a 12,000-gallon pool at 400 gallons per hour. How many hours does it take to fill the pool?",             choices:["20","25","30","35"],                                                 answer:2, explanation:"12,000 / 400 = 30 hours."},
+  {id:"AR18", section:"AR", topic:"work_problems", stem:"If 5 workers can build a wall in 8 days, how many days would 10 workers take at the same work rate?",                  choices:["2","4","6","16"],                                                    answer:1, explanation:"Double the workers = half the time: 8 / 2 = 4 days."},
+  {id:"AR19", section:"AR", topic:"percentages",   stem:"A shirt costs $45 after a 10% discount. What was the original price?",                                                  choices:["$40.50","$49.50","$50","$55"],                                       answer:2, explanation:"45 / 0.90 = $50."},
+  {id:"AR20", section:"AR", topic:"time_distance", stem:"Sandra drove 240 miles in 4 hours. At the same rate, how long would it take her to drive 300 miles?",                  choices:["4.5 hours","5 hours","5.5 hours","6 hours"],                         answer:1, explanation:"Rate = 60 mph; 300 / 60 = 5 hours."},
+  {id:"AR21", section:"AR", topic:"fractions",     stem:"A field is 3/4 of an acre. If a farmer divides it equally among 3 plots, how large is each plot?",                     choices:["1/4 acre","1/3 acre","3/8 acre","3/16 acre"],                       answer:0, explanation:"3/4 / 3 = 1/4 acre."},
+  {id:"AR22", section:"AR", topic:"money",         stem:"A salesperson earns $800 base salary plus 5% commission on sales. In a month with $6,000 in sales, what are the total earnings?", choices:["$1,000","$1,100","$1,200","$1,300"],                answer:1, explanation:"Commission = 0.05 x $6,000 = $300; total = $800 + $300 = $1,100."},
+  {id:"AR23", section:"AR", topic:"fractions",     stem:"A container holds 60 fluid ounces. Each glass holds 8 oz. How many complete glasses can be poured?",                    choices:["5","6","7","8"],                                                     answer:2, explanation:"60 / 8 = 7.5, so 7 complete glasses."},
+  {id:"AR24", section:"AR", topic:"fractions",     stem:"Marcus spends 2/5 of his monthly budget on rent. If his budget is $2,500, how much does he spend on rent?",            choices:["$500","$750","$1,000","$1,500"],                                     answer:2, explanation:"2/5 x $2,500 = $1,000."},
+  {id:"AR25", section:"AR", topic:"percentages",   stem:"A class of 30 students took a test. 20% scored an A. How many students scored an A?",                                   choices:["4","5","6","7"],                                                     answer:2, explanation:"20% x 30 = 6 students."},
+  {id:"AR26", section:"AR", topic:"rates_ratios",  stem:"Water drips at a rate of 3 gallons per hour. How many gallons drip in 2 days?",                                         choices:["72","96","120","144"],                                               answer:3, explanation:"2 days = 48 hours; 3 x 48 = 144 gallons."},
+  {id:"AR27", section:"AR", topic:"rates_ratios",  stem:"A truck can carry 2,400 pounds. Each pallet weighs 75 pounds. How many pallets can the truck carry?",                  choices:["24","28","32","36"],                                                 answer:2, explanation:"2,400 / 75 = 32."},
+  {id:"AR28", section:"AR", topic:"rates_ratios",  stem:"Two numbers have a ratio of 3:5. If their sum is 40, what is the smaller number?",                                      choices:["12","15","18","20"],                                                 answer:1, explanation:"Smaller part = 3/(3+5) x 40 = 15."},
+  {id:"AR29", section:"AR", topic:"area_perimeter",stem:"A rectangular floor is 12 feet by 15 feet. Tiles are 1 sq ft each and cost $3.50 apiece. What is the total tile cost?",choices:["$560","$610","$630","$650"],                                        answer:2, explanation:"Area = 180 sq ft; 180 x $3.50 = $630."},
+  {id:"AR30", section:"AR", topic:"money",         stem:"A car rental costs $45 per day plus $0.20 per mile. Terri rents for 2 days and drives 150 miles. What is her total cost?", choices:["$100","$110","$120","$130"],                                  answer:2, explanation:"$45 x 2 + $0.20 x 150 = $90 + $30 = $120."},
+
+  // WK ─────────────────────────────────────────────────────────────────────
+  {id:"WK1",  section:"WK", topic:"synonyms", stem:"Select the word closest in meaning to 'abundant.'",    choices:["scarce","plentiful","fragile","narrow"],               answer:1, explanation:"Abundant means plentiful."},
+  {id:"WK2",  section:"WK", topic:"synonyms", stem:"Select the word closest in meaning to 'reluctant.'",   choices:["eager","careful","unwilling","honest"],                answer:2, explanation:"Reluctant means unwilling or hesitant."},
+  {id:"WK3",  section:"WK", topic:"synonyms", stem:"Select the word closest in meaning to 'conclude.'",    choices:["finish","separate","wander","delay"],                  answer:0, explanation:"Conclude means finish or bring to an end."},
+  {id:"WK4",  section:"WK", topic:"synonyms", stem:"Select the word closest in meaning to 'vital.'",       choices:["essential","ancient","visible","silent"],              answer:0, explanation:"Vital means essential or very important."},
+  {id:"WK5",  section:"WK", topic:"synonyms", stem:"Select the word closest in meaning to 'brief.'",       choices:["short","loud","plain","calm"],                         answer:0, explanation:"Brief means short."},
+  {id:"WK6",  section:"WK", topic:"synonyms", stem:"Select the word closest in meaning to 'expand.'",      choices:["shrink","delay","increase","hide"],                    answer:2, explanation:"Expand means increase in size or scope."},
+  {id:"WK7",  section:"WK", topic:"synonyms", stem:"Select the word closest in meaning to 'rigid.'",       choices:["stiff","friendly","distant","bright"],                 answer:0, explanation:"Rigid means stiff or inflexible."},
+  {id:"WK8",  section:"WK", topic:"synonyms", stem:"Select the word closest in meaning to 'observe.'",     choices:["notice","reject","borrow","balance"],                  answer:0, explanation:"Observe means notice or watch carefully."},
+  {id:"WK9",  section:"WK", topic:"synonyms", stem:"Select the word closest in meaning to 'scarce.'",      choices:["rare","heavy","equal","smooth"],                       answer:0, explanation:"Scarce means rare or in short supply."},
+  {id:"WK10", section:"WK", topic:"synonyms", stem:"Select the word closest in meaning to 'accurate.'",    choices:["correct","late","simple","rough"],                     answer:0, explanation:"Accurate means correct or precise."},
+  {id:"WK11", section:"WK", topic:"synonyms", stem:"Select the word closest in meaning to 'ancient.'",     choices:["modern","old","costly","foreign"],                     answer:1, explanation:"Ancient means very old."},
+  {id:"WK12", section:"WK", topic:"synonyms", stem:"Select the word closest in meaning to 'permit.'",      choices:["allow","refuse","measure","repeat"],                   answer:0, explanation:"Permit means allow."},
+  {id:"WK13", section:"WK", topic:"synonyms", stem:"Select the word closest in meaning to 'hesitate.'",    choices:["rush","pause","argue","inspect"],                      answer:1, explanation:"Hesitate means pause or delay because of uncertainty."},
+  {id:"WK14", section:"WK", topic:"synonyms", stem:"Select the word closest in meaning to 'maintain.'",    choices:["ignore","preserve","scatter","guess"],                 answer:1, explanation:"Maintain means preserve or keep up."},
+  {id:"WK15", section:"WK", topic:"synonyms", stem:"Select the word closest in meaning to 'hostile.'",     choices:["cheerful","open","unfriendly","quick"],                answer:2, explanation:"Hostile means unfriendly or antagonistic."},
+  {id:"WK16", section:"WK", topic:"synonyms", stem:"Select the word closest in meaning to 'diligent.'",    choices:["lazy","hardworking","careless","distant"],             answer:1, explanation:"Diligent means hardworking or showing steady effort."},
+  {id:"WK17", section:"WK", topic:"synonyms", stem:"Select the word closest in meaning to 'transparent.'", choices:["solid","opaque","clear","rough"],                      answer:2, explanation:"Transparent means clear or see-through."},
+  {id:"WK18", section:"WK", topic:"synonyms", stem:"Select the word closest in meaning to 'persistent.'",  choices:["giving up","continuing","relaxing","forgetting"],      answer:1, explanation:"Persistent means continuing steadily without giving up."},
+  {id:"WK19", section:"WK", topic:"synonyms", stem:"Select the word closest in meaning to 'adequate.'",    choices:["excellent","missing","sufficient","broken"],           answer:2, explanation:"Adequate means sufficient or enough."},
+  {id:"WK20", section:"WK", topic:"synonyms", stem:"Select the word closest in meaning to 'conceal.'",     choices:["reveal","hide","repair","explain"],                    answer:1, explanation:"Conceal means hide or keep out of sight."},
+  {id:"WK21", section:"WK", topic:"synonyms", stem:"Select the word closest in meaning to 'agile.'",       choices:["slow","nimble","heavy","tired"],                       answer:1, explanation:"Agile means nimble or able to move quickly and easily."},
+  {id:"WK22", section:"WK", topic:"synonyms", stem:"Select the word closest in meaning to 'trivial.'",     choices:["important","minor","dangerous","expensive"],           answer:1, explanation:"Trivial means minor or unimportant."},
+  {id:"WK23", section:"WK", topic:"synonyms", stem:"Select the word closest in meaning to 'allocate.'",    choices:["destroy","assign","remove","borrow"],                  answer:1, explanation:"Allocate means assign or distribute for a purpose."},
+  {id:"WK24", section:"WK", topic:"synonyms", stem:"Select the word closest in meaning to 'futile.'",      choices:["useful","hopeless","careful","powerful"],              answer:1, explanation:"Futile means hopeless or having no useful result."},
+  {id:"WK25", section:"WK", topic:"synonyms", stem:"Select the word closest in meaning to 'serene.'",      choices:["anxious","peaceful","crowded","noisy"],                answer:1, explanation:"Serene means peaceful and calm."},
+  {id:"WK26", section:"WK", topic:"synonyms", stem:"Select the word closest in meaning to 'legitimate.'",  choices:["illegal","lawful","temporary","unusual"],              answer:1, explanation:"Legitimate means lawful or valid."},
+  {id:"WK27", section:"WK", topic:"synonyms", stem:"Select the word closest in meaning to 'ample.'",       choices:["more than enough","too little","equal","missing"],     answer:0, explanation:"Ample means more than enough."},
+  {id:"WK28", section:"WK", topic:"synonyms", stem:"Select the word closest in meaning to 'deteriorate.'", choices:["improve","decline","remain","strengthen"],             answer:1, explanation:"Deteriorate means decline or worsen over time."},
+  {id:"WK29", section:"WK", topic:"synonyms", stem:"Select the word closest in meaning to 'prudent.'",     choices:["reckless","wise","angry","timid"],                     answer:1, explanation:"Prudent means wise or showing good judgment."},
+  {id:"WK30", section:"WK", topic:"synonyms", stem:"Select the word closest in meaning to 'concise.'",     choices:["lengthy","brief","difficult","colorful"],              answer:1, explanation:"Concise means brief and clear."},
+
+  // PC ─────────────────────────────────────────────────────────────────────
+  {id:"PC1",  section:"PC", topic:"detail",      stem:"Read the passage and answer the question.\n\nMaya missed the early bus, so she rode her bicycle to school instead. She arrived a little out of breath, but she reached class before the bell rang.\n\nWhy did Maya ride her bicycle to school?",                           choices:["She wanted exercise.","She missed the bus.","Her class was canceled.","The weather was cold."],                         answer:1, explanation:"The passage states that Maya missed the early bus."},
+  {id:"PC2",  section:"PC", topic:"detail",      stem:"Read the passage and answer the question.\n\nThe city library is closed on Sundays but stays open until 8 p.m. on weekdays. Many students visit after school to use the computers and quiet study rooms.\n\nWhen is the library closed?",                                    choices:["Weekdays","After school","Sundays","At 8 p.m."],                                                                       answer:2, explanation:"The passage directly states the library is closed on Sundays."},
+  {id:"PC3",  section:"PC", topic:"detail",      stem:"Read the passage and answer the question.\n\nJordan planted tomato seeds in a sunny corner of the garden. He watered them every morning and pulled weeds each weekend. By July, the plants were tall and full of fruit.\n\nWhich action helped Jordan's plants grow?",        choices:["Keeping them indoors","Watering them regularly","Picking them in June","Moving them to the shade"],                      answer:1, explanation:"The passage says Jordan watered the plants every morning."},
+  {id:"PC4",  section:"PC", topic:"inference",   stem:"Read the passage and answer the question.\n\nA museum guide explained that the oldest pottery in the exhibit was made by hand, without modern tools. Small differences in shape showed that each bowl was unique.\n\nWhy was each bowl unique?",                             choices:["They were painted blue.","They were made without modern tools.","They were found in the same place.","They were broken and repaired."],  answer:1, explanation:"The passage links the uniqueness to being made by hand without modern tools."},
+  {id:"PC5",  section:"PC", topic:"cause_effect",stem:"Read the passage and answer the question.\n\nBefore the storm arrived, the crew tied down loose equipment and covered the supplies with waterproof tarps. As a result, the materials remained dry even though heavy rain fell all night.\n\nWhat was the result of the crew's preparation?", choices:["The storm changed direction.","The supplies stayed dry.","The rain stopped quickly.","The equipment was moved indoors."], answer:1, explanation:"The materials remained dry because they were covered with tarps."},
+  {id:"PC6",  section:"PC", topic:"detail",      stem:"Read the passage and answer the question.\n\nThe trail to the lake is short but steep. Hikers usually stop twice on the way up to drink water and catch their breath.\n\nHow is the trail described?",                                                                          choices:["Long and flat","Short and steep","Wide and crowded","Dark and dangerous"],                                              answer:1, explanation:"The first sentence says the trail is short but steep."},
+  {id:"PC7",  section:"PC", topic:"inference",   stem:"Read the passage and answer the question.\n\nRina compared three laptops before buying one. She chose the lightest model because she carries it to work every day.\n\nWhy did Rina choose the lightest laptop?",                                                               choices:["It was the least expensive.","It had the largest screen.","She carries it daily.","Her old laptop was broken."],         answer:2, explanation:"The passage says she carries it to work every day."},
+  {id:"PC8",  section:"PC", topic:"cause_effect",stem:"Read the passage and answer the question.\n\nThe team practiced indoors when lightning moved into the area. Once the storm passed, they returned to the field and finished training.\n\nWhy did the team go indoors?",                                                          choices:["It was too dark to see.","The field was closed for repairs.","Lightning made conditions unsafe.","They had already finished training."], answer:2, explanation:"They practiced indoors because lightning moved into the area."},
+  {id:"PC9",  section:"PC", topic:"detail",      stem:"Read the passage and answer the question.\n\nMr. Lee keeps a notebook in his truck and writes down each repair as soon as he finishes it. This habit helps him remember which parts were replaced on each job.\n\nWhy does Mr. Lee write in the notebook?",                   choices:["To remember completed repairs","To entertain customers","To track fuel purchases","To plan vacation days"],              answer:0, explanation:"The passage says it helps him remember which parts were replaced."},
+  {id:"PC10", section:"PC", topic:"cause_effect",stem:"Read the passage and answer the question.\n\nThe bakery started offering whole-grain bread in response to customer requests. Within a month, demand was high enough that the owners added two more baking shifts.\n\nWhat caused the bakery to add two more baking shifts?",    choices:["A shortage of flour","Customer demand","A new manager","A broken oven"],                                                answer:1, explanation:"High demand caused the owners to add more baking shifts."},
+  {id:"PC11", section:"PC", topic:"main_idea",   stem:"Read the passage and answer the question.\n\nThe city launched a new recycling program in March. Residents can now place glass, paper, and aluminum in the same blue bin. The program aims to increase recycling rates by 30% within a year.\n\nWhat is the main purpose of the new recycling program?", choices:["To replace all trash pickup","To increase recycling rates","To sell aluminum cans","To reduce the number of blue bins"], answer:1, explanation:"The passage states the program aims to increase recycling rates by 30%."},
+  {id:"PC12", section:"PC", topic:"inference",   stem:"Read the passage and answer the question.\n\nChef Ramirez always arrives at the restaurant two hours before opening. He checks the walk-in cooler, reviews the menu, and meets with his kitchen crew before the first customer walks in.\n\nWhat can you infer about Chef Ramirez?", choices:["He dislikes his job.","He is disorganized.","He prepares carefully before service.","He arrives late regularly."],  answer:2, explanation:"Arriving two hours early and reviewing everything shows careful preparation."},
+  {id:"PC13", section:"PC", topic:"detail",      stem:"Read the passage and answer the question.\n\nBefore using a forklift, operators must check tire pressure, inspect the forks for cracks, and test the horn. If any problem is found, the operator must remove the machine from service immediately.\n\nWhat should an operator do if a problem is found during inspection?", choices:["Continue using it carefully","Remove it from service immediately","Report it at the end of the shift","Wait for a supervisor"], answer:1, explanation:"The passage directly states the operator must remove the machine from service immediately."},
+  {id:"PC14", section:"PC", topic:"cause_effect",stem:"Read the passage and answer the question.\n\nHeavy rain fell for three days in the valley. As a result, the river overflowed its banks and flooded several roads. Emergency crews worked overnight to clear debris.\n\nWhat caused the roads to flood?",                          choices:["Emergency crews blocked traffic","The river overflowed","Heavy snow fell","Roads were under repair"],                    answer:1, explanation:"The river overflowed its banks because of heavy rain, flooding the roads."},
+  {id:"PC15", section:"PC", topic:"detail",      stem:"Read the passage and answer the question.\n\nDaria volunteers at the food bank every Saturday morning. She sorts donations, stocks shelves, and helps families find items they need. She has been volunteering there for three years.\n\nHow long has Daria been volunteering at the food bank?", choices:["One year","Two years","Three years","Five years"],                                                            answer:2, explanation:"The passage states she has been volunteering there for three years."},
+  {id:"PC16", section:"PC", topic:"inference",   stem:"Read the passage and answer the question.\n\nThe outdoor market opens at 7 a.m. and most vendors sell out of produce by noon. Shoppers who arrive early have the best selection. Late arrivals often find empty tables and closed stalls.\n\nWhat can you infer from the passage?",  choices:["The market stays open all day.","Shopping early leads to better selection.","Most vendors arrive at noon.","The market is only for produce sellers."], answer:1, explanation:"Since vendors sell out by noon, arriving early means better selection."},
+  {id:"PC17", section:"PC", topic:"detail",      stem:"Read the passage and answer the question.\n\nDerek reviews his notes each evening after class. He rewrites key points in his own words and creates a short quiz for himself. His test scores have improved since he started this habit.\n\nWhat habit helped Derek improve his test scores?", choices:["Taking longer naps","Reviewing and rewriting notes daily","Skipping class on exam days","Using fewer notebooks"], answer:1, explanation:"The passage links his improved scores to reviewing and rewriting his notes each evening."},
+  {id:"PC18", section:"PC", topic:"cause_effect",stem:"Read the passage and answer the question.\n\nThe soccer team lost their top scorer to an injury in the first game. Without her, the team struggled to convert opportunities into goals. They finished the tournament with fewer wins than the previous year.\n\nWhat most likely caused the team's poor performance?", choices:["The schedule was too long","The team lost their top scorer","The weather was bad","The coach changed strategy"], answer:1, explanation:"The passage directly links losing the top scorer to the team's struggles."},
+  {id:"PC19", section:"PC", topic:"main_idea",   stem:"Read the passage and answer the question.\n\nA skilled mechanic can diagnose engine problems by listening as well as reading instrument data. Experience teaches patterns that instruments cannot always measure, and a trained ear often catches issues before they become serious.\n\nWhat is the main idea of the passage?", choices:["Instruments are unnecessary for mechanics.","Experience and listening help mechanics catch problems early.","New mechanics have better hearing.","Engine problems are always easy to find."], answer:1, explanation:"The main point is that experience and listening help diagnose problems early."},
+  {id:"PC20", section:"PC", topic:"detail",      stem:"Read the passage and answer the question.\n\nAfter the first frost, Elena covered her garden beds with straw mulch. She hoped to protect the roots of her perennial plants over the winter months. In spring, most of her plants returned healthy.\n\nWhy did Elena add mulch to her garden?", choices:["To add color to the garden","To protect plant roots in winter","To keep animals away","To reduce watering in summer"], answer:1, explanation:"The passage says she hoped to protect the roots of her perennial plants over the winter."},
+
+  // MK ─────────────────────────────────────────────────────────────────────
+  {id:"MK1",  section:"MK", topic:"algebra",             stem:"Solve for x:  3x + 5 = 20",                                         choices:["3","5","6","8"],                                    answer:1, explanation:"3x = 15, so x = 5."},
+  {id:"MK2",  section:"MK", topic:"number_theory",       stem:"What is the value of 7 squared?",                                    choices:["14","28","42","49"],                                answer:3, explanation:"7 x 7 = 49."},
+  {id:"MK3",  section:"MK", topic:"algebra",             stem:"If y = 4 and x = 3, what is the value of 2x + y?",                  choices:["7","9","10","14"],                                  answer:2, explanation:"2(3) + 4 = 10."},
+  {id:"MK4",  section:"MK", topic:"geometry",            stem:"What is the perimeter of a rectangle with length 9 and width 4?",   choices:["13","18","26","36"],                                answer:2, explanation:"Perimeter = 2(9 + 4) = 26."},
+  {id:"MK5",  section:"MK", topic:"algebra",             stem:"Simplify:  5(a + 2)",                                                choices:["5a + 2","5a + 7","5a + 10","a + 10"],              answer:2, explanation:"Distribute 5: 5a + 10."},
+  {id:"MK6",  section:"MK", topic:"fractions",           stem:"What is 15% of 200?",                                               choices:["15","20","30","40"],                                answer:2, explanation:"0.15 x 200 = 30."},
+  {id:"MK7",  section:"MK", topic:"fractions",           stem:"Which fraction is equivalent to 3/4?",                              choices:["6/8","4/9","9/16","12/20"],                         answer:0, explanation:"3/4 x 2/2 = 6/8."},
+  {id:"MK8",  section:"MK", topic:"algebra",             stem:"If 4x = 28, what is x?",                                            choices:["6","7","8","9"],                                    answer:1, explanation:"x = 28 / 4 = 7."},
+  {id:"MK9",  section:"MK", topic:"geometry",            stem:"What is the area of a triangle with base 10 and height 6?",         choices:["16","30","40","60"],                                answer:1, explanation:"Area = 1/2 x 10 x 6 = 30."},
+  {id:"MK10", section:"MK", topic:"algebra",             stem:"What is the slope of a line that rises 8 units and runs 2 units?",  choices:["2","4","6","10"],                                   answer:1, explanation:"Slope = rise/run = 8/2 = 4."},
+  {id:"MK11", section:"MK", topic:"order_of_operations", stem:"Solve:  18 divided by (3 x 2)",                                     choices:["2","3","6","12"],                                   answer:1, explanation:"3 x 2 = 6, and 18 / 6 = 3."},
+  {id:"MK12", section:"MK", topic:"algebra",             stem:"Which expression is a factorization of x squared minus 9?",         choices:["(x-9)(x+1)","(x-3)(x+3)","(x-1)(x+9)","(x-9) squared"], answer:1, explanation:"Difference of squares: x^2 - 9 = (x-3)(x+3)."},
+  {id:"MK13", section:"MK", topic:"statistics",          stem:"What is the median of  2, 5, 7, 9, 12?",                            choices:["5","7","9","12"],                                   answer:1, explanation:"The middle number is 7."},
+  {id:"MK14", section:"MK", topic:"geometry",            stem:"If a circle has radius 3, what is its diameter?",                   choices:["3","6","9","18"],                                   answer:1, explanation:"Diameter = 2 x radius = 6."},
+  {id:"MK15", section:"MK", topic:"algebra",             stem:"Solve for n:  n / 5 = 9",                                           choices:["14","40","45","50"],                                answer:2, explanation:"Multiply both sides by 5: n = 45."},
+  {id:"MK16", section:"MK", topic:"algebra",             stem:"Simplify:  4(3x - 2) - 5x",                                         choices:["7x - 8","12x - 8","7x - 2","7x + 8"],              answer:0, explanation:"4(3x - 2) = 12x - 8; 12x - 8 - 5x = 7x - 8."},
+  {id:"MK17", section:"MK", topic:"algebra",             stem:"Solve for x:  2x - 3 = 11",                                         choices:["4","5","6","7"],                                    answer:3, explanation:"2x = 14; x = 7."},
+  {id:"MK18", section:"MK", topic:"geometry",            stem:"What is the area of a rectangle with length 8 and width 5?",        choices:["13","26","40","80"],                                answer:2, explanation:"Area = 8 x 5 = 40."},
+  {id:"MK19", section:"MK", topic:"fractions",           stem:"What is 3/4 divided by 1/2?",                                       choices:["3/8","2/3","3/2","6/8"],                            answer:2, explanation:"Dividing by 1/2 is multiplying by 2: 3/4 x 2 = 3/2."},
+  {id:"MK20", section:"MK", topic:"statistics",          stem:"What is the mode of  3, 7, 3, 5, 9, 3, 7?",                        choices:["3","5","7","9"],                                    answer:0, explanation:"The mode is the most frequent value; 3 appears three times."},
+  {id:"MK21", section:"MK", topic:"algebra",             stem:"A number is increased by 20% and the result is 60. What is the original number?", choices:["40","45","48","50"],               answer:3, explanation:"1.2x = 60; x = 50."},
+  {id:"MK22", section:"MK", topic:"number_theory",       stem:"What is the greatest common factor (GCF) of 36 and 48?",            choices:["6","9","12","18"],                                  answer:2, explanation:"Both 36 and 48 are divisible by 12; no larger common factor exists."},
+  {id:"MK23", section:"MK", topic:"algebra",             stem:"A line passes through (0, 2) and (3, 8). What is its slope?",       choices:["2","3","4","6"],                                    answer:0, explanation:"Slope = (8 - 2) / (3 - 0) = 6/3 = 2."},
+  {id:"MK24", section:"MK", topic:"number_theory",       stem:"Evaluate:  3 squared + 4 squared",                                  choices:["14","25","34","49"],                                answer:1, explanation:"3^2 = 9; 4^2 = 16; 9 + 16 = 25."},
+  {id:"MK25", section:"MK", topic:"fractions",           stem:"What is 0.08 expressed as a percent?",                              choices:["0.08%","0.8%","8%","80%"],                          answer:2, explanation:"Multiply by 100: 0.08 x 100 = 8%."},
+  {id:"MK26", section:"MK", topic:"algebra",             stem:"Solve the inequality:  2x + 1 > 9",                                 choices:["x > 3","x > 4","x > 5","x > 6"],                   answer:1, explanation:"2x > 8; x > 4."},
+  {id:"MK27", section:"MK", topic:"geometry",            stem:"What is the circumference of a circle with radius 7?  (Use pi = 3.14)", choices:["21.98","43.96","49","153.86"],               answer:1, explanation:"C = 2 x pi x r = 2 x 3.14 x 7 = 43.96."},
+  {id:"MK28", section:"MK", topic:"number_theory",       stem:"Which of these is a prime number?",                                 choices:["9","15","21","23"],                                 answer:3, explanation:"23 has no factors other than 1 and itself."},
+  {id:"MK29", section:"MK", topic:"fractions",           stem:"Simplify:  2/3 + 1/6",                                              choices:["3/9","1/2","5/6","7/9"],                            answer:2, explanation:"Convert 2/3 to 4/6; 4/6 + 1/6 = 5/6."},
+  {id:"MK30", section:"MK", topic:"algebra",             stem:"If f(x) = 3x + 1, what is f(4)?",                                   choices:["7","12","13","15"],                                 answer:2, explanation:"f(4) = 3(4) + 1 = 13."},
+
+  // ─── ASVAB For Dummies Practice Exam 1 – AR ──────────────────────────────
+  {id:"ARD01", section:"AR", topic:"rates_ratios",   stem:"If a barber can cut 35 people's hair per day and works 7 days a week, how many haircuts could he give during April, May, and June?",                                                          choices:["3,185","3,150","2,545","2,555"],                               answer:0, explanation:"April(30)+May(31)+June(30)=91 days. 91 × 35 = 3,185 haircuts."},
+  {id:"ARD02", section:"AR", topic:"rates_ratios",   stem:"If you type 45 words per minute, how many words can you type in 12 minutes?",                                                                                                                  choices:["490","540","605","615"],                                       answer:1, explanation:"45 × 12 = 540 words."},
+  {id:"ARD03", section:"AR", topic:"area_perimeter", stem:"Tom is flying a kite at the end of a 500-foot string. His friend Kathy stands directly under the kite, 300 feet from Tom. How high is the kite flying?",                                      choices:["300 feet","350 feet","400 feet","450 feet"],                   answer:2, explanation:"Pythagorean theorem: sqrt(500² - 300²) = sqrt(160,000) = 400 feet."},
+  {id:"ARD04", section:"AR", topic:"area_perimeter", stem:"Amy wants to fence in a yard using 400 feet of fencing. She wants the yard to be 30 feet wide. What will its length be?",                                                                    choices:["170 feet","175 feet","180 feet","185 feet"],                   answer:0, explanation:"P = 2l + 2w → 400 = 2l + 60 → 2l = 340 → l = 170 feet."},
+  {id:"ARD05", section:"AR", topic:"number_theory",  stem:"A 3-digit access code requires: first digit must be A or B; second digit must be 0–9; third digit any letter A–Z. How many possible codes are there?",                                       choices:["38","468","520","640"],                                        answer:2, explanation:"2 × 10 × 26 = 520 possible codes."},
+  {id:"ARD06", section:"AR", topic:"time_distance",  stem:"The sun is 93 million miles from Earth. Light travels at 186,000 miles per second. How long does it take for sunlight to reach Earth?",                                                      choices:["5 minutes","6 min 15 sec","7 minutes","8 min 20 sec"],         answer:3, explanation:"93,000,000 ÷ 186,000 = 500 seconds = 8 minutes 20 seconds."},
+  {id:"ARD07", section:"AR", topic:"percentages",    stem:"A tanning-bed pass costs $53 per month this year, up from $50 last year. What was the percentage increase?",                                                                                  choices:["5%","5.5%","6%","6.5%"],                                      answer:2, explanation:"Increase = $3. Percentage = 3 ÷ 50 × 100 = 6%."},
+  {id:"ARD08", section:"AR", topic:"algebra",        stem:"Eleven plus forty-one is divided by a number. If the result is thirteen, what is the number?",                                                                                                choices:["2","4","6","8"],                                              answer:1, explanation:"(11 + 41) ÷ x = 13 → 52 ÷ x = 13 → x = 4."},
+  {id:"ARD09", section:"AR", topic:"money",          stem:"Mark earns $9.25 per hour. His boss gives him a 4% raise. What is his new hourly wage?",                                                                                                      choices:["$9.29","$9.62","$9.89","$9.99"],                              answer:1, explanation:"$9.25 × 1.04 = $9.62."},
+  {id:"ARD10", section:"AR", topic:"rates_ratios",   stem:"How many pounds of nails costing $7 per pound must be mixed with 6 pounds of nails at $3 per pound to yield a mixture costing $4 per pound?",                                                choices:["2 pounds","2.5 pounds","3 pounds","3.5 pounds"],              answer:0, explanation:"7x + 18 = 4(x + 6) → 7x + 18 = 4x + 24 → 3x = 6 → x = 2 pounds."},
+  {id:"ARD11", section:"AR", topic:"fractions",      stem:"Theodore has 24 baseball cards. He sells 1/4 to Tom and 1/3 to Larry, and his mom throws away 1/6 of his cards. How many cards does Theodore have left?",                                    choices:["2","18","12","6"],                                            answer:3, explanation:"1/4 + 1/3 + 1/6 = 3/12 + 4/12 + 2/12 = 9/12 = 3/4 gone. 24 × (1 − 3/4) = 6 cards."},
+  {id:"ARD12", section:"AR", topic:"money",          stem:"Theresa bought 5 karaoke CDs at $22.50 each instead of the normal $24 price. How much did she save in total?",                                                                                choices:["$7.50","$1.50","$8.00","$22.50"],                             answer:0, explanation:"Savings per CD = $24 − $22.50 = $1.50. Total = 5 × $1.50 = $7.50."},
+  {id:"ARD13", section:"AR", topic:"time_distance",  stem:"On a beach trip you travel 200 miles in 300 minutes. How fast did you travel?",                                                                                                               choices:["30 mph","40 mph","50 mph","60 mph"],                          answer:1, explanation:"300 min = 5 hours. 200 ÷ 5 = 40 mph."},
+  {id:"ARD14", section:"AR", topic:"percentages",    stem:"Twenty-one students, or 60% of the class, passed the final exam. How many students are in the class?",                                                                                        choices:["45","40","35","30"],                                          answer:2, explanation:"21 ÷ 0.60 = 35 students."},
+  {id:"ARD15", section:"AR", topic:"money",          stem:"Joan invests $4,000 at 3% simple interest. How much will she have in the account after 10 years?",                                                                                            choices:["$4,500","$4,800","$5,200","$5,400"],                          answer:2, explanation:"I = 4,000 × 0.03 × 10 = $1,200. Total = $4,000 + $1,200 = $5,200."},
+  {id:"ARD16", section:"AR", topic:"area_perimeter", stem:"A rectangle has a perimeter of 36 inches. Its length is 3 inches greater than twice the width. What is the length?",                                                                         choices:["5 inches","13 inches","18 inches","20 inches"],              answer:1, explanation:"l = 2w + 3. P = 2l + 2w = 36 → 6w + 6 = 36 → w = 5, l = 2(5)+3 = 13 inches."},
+  {id:"ARD17", section:"AR", topic:"area_perimeter", stem:"A backyard measures 50 feet by 100 feet. What is its area?",                                                                                                                                  choices:["150 sq ft","300 sq ft","500 sq ft","5,000 sq ft"],            answer:3, explanation:"Area = 50 × 100 = 5,000 sq ft."},
+  {id:"ARD18", section:"AR", topic:"time_distance",  stem:"Eric drives at 75 kph. The speed limit is 40 mph. If 1 km = 5/8 mile, how many mph over the speed limit is Eric driving?",                                                                   choices:["5","7","9","11"],                                             answer:1, explanation:"75 × 5/8 = 46.875 ≈ 47 mph. 47 − 40 = 7 mph over the limit."},
+  {id:"ARD19", section:"AR", topic:"algebra",        stem:"Three apples and twice as many pears add up to one-half the number of grapes in a basket. How many grapes are in the basket?",                                                                choices:["8","18","28","38"],                                           answer:1, explanation:"3 apples + 6 pears = 9 = half the grapes. Grapes = 9 × 2 = 18."},
+  {id:"ARD20", section:"AR", topic:"rates_ratios",   stem:"Apples are on sale: Buy 2 pounds, get 1 pound free. How many pounds must Janet buy to receive 2 free pounds?",                                                                                choices:["2 pounds","4 pounds","6 pounds","3 pounds"],                  answer:1, explanation:"Each 2 pounds purchased earns 1 free pound. For 2 free pounds, buy 4 pounds."},
+  {id:"ARD21", section:"AR", topic:"rates_ratios",   stem:"Four pipes of equal length measure 44 feet when connected end to end. How long is each pipe?",                                                                                                choices:["11 feet","4 feet","22 feet","9 feet"],                        answer:0, explanation:"44 ÷ 4 = 11 feet."},
+  {id:"ARD22", section:"AR", topic:"number_theory",  stem:"A German shepherd is 120 feet from a fire hydrant. An Alaskan malamute is 75 feet from the same hydrant. How much closer is the Alaskan malamute?",                                          choices:["45 feet","25 feet","75 feet","195 feet"],                     answer:0, explanation:"120 − 75 = 45 feet."},
+  {id:"ARD23", section:"AR", topic:"time_distance",  stem:"A recruit left home at 6 a.m. by bus. The trip took 14 hours. What time did she arrive at the processing center?",                                                                            choices:["7 p.m.","12 a.m.","8 p.m.","9 p.m."],                        answer:2, explanation:"6 a.m. + 14 hours = 8 p.m."},
+  {id:"ARD24", section:"AR", topic:"money",          stem:"A farmer sold 3 pints of strawberries at $1.98 each, 5 pints of raspberries at $2.49 each, and a bushel of peaches for $5.50. How much did he earn in total?",                               choices:["$9.97","$23.89","$18.39","$18.91"],                           answer:1, explanation:"3 × $1.98 + 5 × $2.49 + $5.50 = $5.94 + $12.45 + $5.50 = $23.89."},
+  {id:"ARD25", section:"AR", topic:"rates_ratios",   stem:"A librarian wants to shelve 532 books. Four books fit per foot of shelving. How many feet of shelving does she need?",                                                                        choices:["13 feet","45 feet","33 feet","133 feet"],                     answer:3, explanation:"532 ÷ 4 = 133 feet of shelving."},
+  {id:"ARD26", section:"AR", topic:"money",          stem:"A student buys a science textbook for $18.00, a math textbook for $14.50, and a dictionary for $9.95. What is the total cost?",                                                               choices:["$42.45","$27.95","$41.95","$38.50"],                          answer:0, explanation:"$18.00 + $14.50 + $9.95 = $42.45."},
+  {id:"ARD27", section:"AR", topic:"time_distance",  stem:"Debra works an 8-hour shift on Friday. How many minutes does she work that day?",                                                                                                              choices:["480 minutes","800 minutes","240 minutes","400 minutes"],      answer:0, explanation:"8 hours × 60 minutes/hour = 480 minutes."},
+  {id:"ARD28", section:"AR", topic:"rates_ratios",   stem:"Six people can run three machines in a factory. How many machines can 18 people run?",                                                                                                         choices:["7","9","6","8"],                                              answer:1, explanation:"18 ÷ 6 = 3× as many people, so 3 × 3 = 9 machines."},
+  {id:"ARD29", section:"AR", topic:"rates_ratios",   stem:"On a map, 1/2 inch equals 1 mile. What length on the map equals 5 miles?",                                                                                                                   choices:["2.5 inches","5.0 inches","10.0 inches","1.5 inches"],         answer:0, explanation:"5 miles × 0.5 in/mile = 2.5 inches."},
+  {id:"ARD30", section:"AR", topic:"money",          stem:"A man bought jeans for $23.00, a shirt for $14.95, and two ties at $7.98 each. What was the total cost?",                                                                                     choices:["$53.91","$45.93","$51.99","$54.50"],                          answer:0, explanation:"$23.00 + $14.95 + 2 × $7.98 = $23.00 + $14.95 + $15.96 = $53.91."},
+
+  // ─── ASVAB For Dummies Practice Exam 1 – WK ──────────────────────────────
+  {id:"WKD01", section:"WK", topic:"synonyms", stem:"The abhorrent smell from the lake overpowered the picnickers. ABHORRENT most nearly means:",                                          choices:["strong","pleasant","offensive","tantalizing"],                 answer:2, explanation:"Abhorrent means repugnant or inspiring disgust (offensive)."},
+  {id:"WKD02", section:"WK", topic:"synonyms", stem:"Belie most nearly means",                                                                                                            choices:["pleasure","rule","pretend","misrepresent"],                    answer:3, explanation:"Belie means to give a false impression; to misrepresent."},
+  {id:"WKD03", section:"WK", topic:"synonyms", stem:"The water was calm with detritus slowly moving in the eddies. DETRITUS most nearly means:",                                          choices:["fish","lily pads","plants","debris"],                          answer:3, explanation:"Detritus refers to waste or debris."},
+  {id:"WKD04", section:"WK", topic:"synonyms", stem:"The prime minister was always cautious about leaving his redoubt in Belgrade. REDOUBT most nearly means:",                           choices:["city","stronghold","house","country"],                         answer:1, explanation:"A redoubt is a temporary fortification — a stronghold."},
+  {id:"WKD05", section:"WK", topic:"synonyms", stem:"Mike was afraid he might be ostracized for stepping out of line. OSTRACIZED most nearly means:",                                     choices:["banished","scolded","assaulted","arrested"],                   answer:0, explanation:"Ostracized means excluded from a group — banished."},
+  {id:"WKD06", section:"WK", topic:"synonyms", stem:"The hotel was specifically designed for the wayworn traveler. WAYWORN most nearly means:",                                           choices:["lost","weary","demanding","happy"],                            answer:1, explanation:"Wayworn means weary from traveling."},
+  {id:"WKD07", section:"WK", topic:"synonyms", stem:"The park has no showers and no potable water. POTABLE most nearly means:",                                                           choices:["usable","clear","drinkable","tasty"],                          answer:2, explanation:"Potable means safe to drink."},
+  {id:"WKD08", section:"WK", topic:"synonyms", stem:"Decamp most nearly means",                                                                                                          choices:["to backpack","to leave","to doubt","to act with abandon"],     answer:1, explanation:"Decamp means to depart suddenly or secretly."},
+  {id:"WKD09", section:"WK", topic:"synonyms", stem:"Glorious most nearly means",                                                                                                        choices:["splendid","particular","delayed","contentious"],               answer:0, explanation:"Glorious means having exceptional beauty that evokes admiration (splendid)."},
+  {id:"WKD10", section:"WK", topic:"synonyms", stem:"Duplicity most nearly means",                                                                                                       choices:["hyperactivity","godlike","deception","criticalness"],          answer:2, explanation:"Duplicity means deceitfulness."},
+  {id:"WKD11", section:"WK", topic:"synonyms", stem:"Mallet most nearly means",                                                                                                          choices:["sermon","participate","hammer","fish"],                        answer:2, explanation:"A mallet is a hammer with a large head."},
+  {id:"WKD12", section:"WK", topic:"synonyms", stem:"Hosiery most nearly means",                                                                                                         choices:["dangerous","illegal","stockings","automatic"],                 answer:2, explanation:"Hosiery refers to stockings, pantyhose, and socks collectively."},
+  {id:"WKD13", section:"WK", topic:"synonyms", stem:"Hale most nearly means",                                                                                                            choices:["old","healthy","customary","uninformed"],                      answer:1, explanation:"Hale means strong and healthy."},
+  {id:"WKD14", section:"WK", topic:"synonyms", stem:"Magnitude most nearly means",                                                                                                       choices:["importance","peculiar","alone","tantamount"],                  answer:0, explanation:"Magnitude refers to great size, extent, or importance."},
+  {id:"WKD15", section:"WK", topic:"synonyms", stem:"His vapid presentation earned him a C in the class. VAPID most nearly means:",                                                      choices:["difficult","plagiarized","dull","polished"],                   answer:2, explanation:"Vapid means offering nothing stimulating or challenging (dull)."},
+  {id:"WKD16", section:"WK", topic:"synonyms", stem:"Percival imparted so much extraneous data at the meeting. EXTRANEOUS most nearly means:",                                           choices:["extensive","unwelcome","superfluous","radical"],               answer:2, explanation:"Extraneous means unrelated or unnecessary — superfluous."},
+  {id:"WKD17", section:"WK", topic:"synonyms", stem:"She was often solicitous of her father's feelings. SOLICITOUS most nearly means:",                                                  choices:["careful","ignorant","forgetful","abusive"],                    answer:0, explanation:"Solicitous means showing concern or interest (careful)."},
+  {id:"WKD18", section:"WK", topic:"synonyms", stem:"I could never get over her liquid blue, limpid eyes. LIMPID most nearly means:",                                                    choices:["bright","clear","attentive","dull"],                           answer:1, explanation:"Limpid means clear and unclouded."},
+  {id:"WKD19", section:"WK", topic:"synonyms", stem:"The goal of the treaty is to develop international amity and reciprocal trade. AMITY most nearly means:",                          choices:["agreement","friendship","standards","understanding"],          answer:1, explanation:"Amity refers to a friendly relationship."},
+  {id:"WKD20", section:"WK", topic:"synonyms", stem:"He often bragged about the bravery of his favorite cohort. COHORT most nearly means:",                                              choices:["person","teacher","companion","employee"],                     answer:2, explanation:"Cohort means a group banded together — a companion or ally."},
+  {id:"WKD21", section:"WK", topic:"synonyms", stem:"Speechless most nearly means",                                                                                                      choices:["well-spoken","silent","restless","talkative"],                 answer:1, explanation:"Speechless means temporarily unable to speak (silent)."},
+  {id:"WKD22", section:"WK", topic:"synonyms", stem:"Indigenous most nearly means",                                                                                                      choices:["poor","rich","immigrant","native"],                            answer:3, explanation:"Indigenous means native or occurring naturally in a place."},
+  {id:"WKD23", section:"WK", topic:"synonyms", stem:"Illusive most nearly means",                                                                                                        choices:["insignificant","deceptive","useful","hidden"],                 answer:1, explanation:"Illusive means deceptive, like an illusion."},
+  {id:"WKD24", section:"WK", topic:"synonyms", stem:"Hesitate most nearly means",                                                                                                        choices:["slam","slow to act","foreclose","end"],                        answer:1, explanation:"Hesitate means to pause before acting (slow to act)."},
+  {id:"WKD25", section:"WK", topic:"synonyms", stem:"Gravity most nearly means",                                                                                                         choices:["planet","relationship","earn","seriousness"],                  answer:3, explanation:"Gravity means extreme or alarming importance or seriousness."},
+  {id:"WKD26", section:"WK", topic:"synonyms", stem:"Fondle most nearly means",                                                                                                          choices:["stir","handle tenderly","ogle","radiate"],                     answer:1, explanation:"Fondle means to stroke or caress lovingly."},
+  {id:"WKD27", section:"WK", topic:"synonyms", stem:"Fete most nearly means",                                                                                                            choices:["festival","criticize","approve","eat"],                        answer:0, explanation:"Fete means a celebration or festival."},
+  {id:"WKD28", section:"WK", topic:"synonyms", stem:"Encore most nearly means",                                                                                                          choices:["play","applause","repetition","excite"],                       answer:2, explanation:"Encore means a repeated or additional performance."},
+  {id:"WKD29", section:"WK", topic:"synonyms", stem:"Diverse most nearly means",                                                                                                         choices:["various","hidden","nestled","pastime"],                        answer:0, explanation:"Diverse means showing a substantial amount of variety."},
+  {id:"WKD30", section:"WK", topic:"synonyms", stem:"Detest most nearly means",                                                                                                          choices:["anger","hate","surprise","excite"],                            answer:1, explanation:"Detest means to dislike intensely."},
+  {id:"WKD31", section:"WK", topic:"synonyms", stem:"Mike delivered acerbic one-liners with no effort. ACERBIC most nearly means:",                                                     choices:["funny","cheap","sharp","poetic"],                              answer:2, explanation:"Acerbic means sharp and forthright in speech or manner."},
+  {id:"WKD32", section:"WK", topic:"synonyms", stem:"It took a great degree of inexorable force to break into the cavern. INEXORABLE most nearly means:",                               choices:["strong","unyielding","acute","powerful"],                      answer:1, explanation:"Inexorable means impossible to prevent or stop (unyielding)."},
+  {id:"WKD33", section:"WK", topic:"synonyms", stem:"Attendants were stationed with the obvious intent to hector those who moved too slowly. HECTOR most nearly means:",                choices:["hurry","harass","encourage","note"],                           answer:1, explanation:"Hector means to talk to someone in a bullying way (harass)."},
+  {id:"WKD34", section:"WK", topic:"synonyms", stem:"Reggie was as gauche in polite company as he always had been. GAUCHE most nearly means:",                                          choices:["funny","entertaining","tactless","embarrassed"],               answer:2, explanation:"Gauche means lacking grace; unsophisticated (tactless)."},
+  {id:"WKD35", section:"WK", topic:"synonyms", stem:"Confident most nearly means",                                                                                                       choices:["assured","positive","intelligent","educated"],                 answer:0, explanation:"Confident means feeling or showing self-assurance (assured)."},
+
+  // ─── ASVAB For Dummies Practice Exam 1 – PC ──────────────────────────────
+  {id:"PCD01", section:"PC", topic:"detail",      stem:"PASSAGE: On June 22, 1944, President Roosevelt signed the Servicemembers' Readjustment Act of 1944, known as the GI Bill of Rights. By the time it ended in July 1956, 7.8 million WWII veterans had used education or training programs, and 2.4 million veterans had home loans backed by the VA.\n\nQUESTION: The GI Bill provided",                                                                                                                                                                                                                           choices:["free housing, training, and education","medical coverage, education, and assistance","home loan guarantees, training, and education for many veterans","a means to exempt veterans from Social Security taxes"],             answer:2, explanation:"The passage states veterans received home loan guarantees, education, and training — not free or with tax exemptions."},
+  {id:"PCD02", section:"PC", topic:"detail",      stem:"PASSAGE: You can put up to $3,000 a year into an individual retirement account (IRA) on a tax-deductible basis if your spouse isn't covered by a retirement plan at work. You also can put the same amount tax-deferred into an IRA for a nonworking spouse if you file jointly.\n\nQUESTION: The maximum a married couple could possibly save in a tax-deferred IRA during a year is",                                                                                                                                                                             choices:["$3,000","$6,000","$9,000","Cannot be determined from the passage"],                                                                                                                                                         answer:1, explanation:"$3,000 for one spouse + $3,000 for the nonworking spouse (filed jointly) = $6,000."},
+  {id:"PCD03", section:"PC", topic:"inference",   stem:"PASSAGE: Presidential appointments are an ongoing effort. Some of a president's appointments require Senate confirmation. These include positions throughout the federal government, in the Cabinet, regulatory commissions, ambassadorships, judgeships, and numerous advisory boards.\n\nQUESTION: Which of the following statements is NOT true?",                                                                                                                                                                                                                    choices:["All presidential appointments require Senate confirmation","A regulatory commission position is an example of a presidential appointment","Presidential appointments happen throughout the president's term","All of the above statements are true"],               answer:0, explanation:"The passage says SOME appointments require Senate confirmation, not all — so Choice A is false."},
+  {id:"PCD04", section:"PC", topic:"main_idea",   stem:"PASSAGE: A link between advertising and alcohol consumption is intuitively compelling but hasn't been consistently supported by research. Partial bans on advertising aren't likely to be effective, and total bans aren't practical. Advertising bans in one medium are weakened by substitution in other media.\n\nQUESTION: The author of this passage believes that",                                                                                                                                                                                               choices:["alcohol advertising should be illegal","partial bans on alcohol advertising could work in some cases","bans on alcohol advertising aren't likely to work","clear links exist between alcohol use and advertising"],           answer:2, explanation:"The passage argues partial bans aren't effective and total bans aren't practical — bans on alcohol advertising won't work."},
+  {id:"PCD05", section:"PC", topic:"detail",      stem:"PASSAGE: The name Alabama comes from a southern Indian tribe. One of the major waterways in the state was named after this tribe, and from this river the state name was derived. The tribal name is thought to have origins in the Choctaw tongue.\n\nQUESTION: The state of Alabama was named after",                                                                                                                                                                                                                                                                choices:["a Choctaw Indian tribe","European settlers","a river","an Indian chief"],                                                                                                                                                   answer:2, explanation:"The passage says the state derived its name from the river, which was named after the Alabama tribe."},
+  {id:"PCD06", section:"PC", topic:"inference",   stem:"PASSAGE: Each of the 94 federal judicial districts handles bankruptcy matters, and in almost all districts, bankruptcy cases are filed in the bankruptcy court. Bankruptcy cases can't be filed in state court. Bankruptcy laws help people get a fresh start by liquidating assets or creating repayment plans.\n\nQUESTION: Which of the following statements is NOT supported by the passage?",                                                                                                                                                                      choices:["Bankruptcy must be filed in a federal court","Bankruptcy is designed to help individuals and protect businesses","Businesses can be reorganized through bankruptcy","Bankruptcy must always be filed in the bankruptcy court"], answer:3, explanation:"The passage says 'in almost all districts' — not always — so D overstates and is not supported."},
+  {id:"PCD07", section:"PC", topic:"detail",      stem:"PASSAGE: The DOJ reported on U.S. hate crimes from 1997–1999. In 60% of incidents the most serious offense was a violent crime. The majority of incidents motivated by race, ethnicity, sexual orientation, or disability involved a violent offense. Two-thirds of incidents motivated by religion involved a property offense, most commonly vandalism.\n\nQUESTION: Most property offense hate crimes were motivated by",                                                                                                                                            choices:["religion","race","sexual orientation","abortion"],                                                                                                                                                                          answer:0, explanation:"The passage states two-thirds of property offense hate crimes were motivated by religion."},
+  {id:"PCD08", section:"PC", topic:"detail",      stem:"PASSAGE: The DOJ reported on U.S. hate crimes from 1997–1999. In 60% of hate crime incidents, the most serious offense was a violent crime, most commonly intimidation or simple assault. The majority of incidents motivated by race, ethnicity, sexual orientation, or disability involved a violent offense.\n\nQUESTION: The majority of hate crimes during this period can be classified as",                                                                                                                                                                      choices:["property offenses","violent crimes","assault","intimidation"],                                                                                                                                                              answer:1, explanation:"60% of hate crime incidents involved violent crimes as the most serious offense."},
+  {id:"PCD09", section:"PC", topic:"detail",      stem:"PASSAGE: Linewatch operations are conducted near international boundaries and coastlines to prevent illegal entry and smuggling of aliens. Sign cutting is the detection and interpretation of any disturbances in natural terrain conditions that indicate the presence or passage of people, animals, or vehicles.\n\nQUESTION: The activity designed to detect changes in natural terrain that may indicate passage of illegal aliens is called",                                                                                                                       choices:["linewatching","sign cutting","Border Patrol Operations","Terrain Observation"],                                                                                                                                             answer:1, explanation:"Sign cutting is defined as detecting disturbances in terrain indicating passage."},
+  {id:"PCD10", section:"PC", topic:"cause_effect",stem:"PASSAGE: Wales was divided into three nearly equal parts: Venedotia (North Wales), Demetia (South Wales), and Powys (middle/eastern district). Roderic the Great, who was king over all Wales, was the cause of this division. He had three sons — Mervin, Anarawt, and Cadell — among whom he partitioned the whole principality.\n\nQUESTION: Wales was divided into three parts because",                                                                                                                                                                          choices:["natural boundaries such as rivers and mountains made division necessary","Wales was too large for the king to oversee personally","the King of Wales wanted his sons to rule","all of the above"],                           answer:2, explanation:"The passage explicitly states Roderic the Great divided Wales for his three sons."},
+  {id:"PCD11", section:"PC", topic:"main_idea",   stem:"PASSAGE: The Huns came from Asia into Southeastern Europe, taking territory north of the Danube. In the fifth century they had a famous king named Attila. He was 21 when crowned, brave and ambitious. He marched into Roman territories, defeating the Romans in battles and capturing cities. Emperor Theodosius asked for peace. Attila agreed, but soon discovered a plot to murder him and resumed war.\n\nQUESTION: A good title for this paragraph would be",                                                                                                choices:["The Burning of Rome","Emperor Theodosius","Attila the Hun","Rome for Dummies"],                                                                                                                                             answer:2, explanation:"The primary subject of the paragraph is Attila, king of the Huns."},
+  {id:"PCD12", section:"PC", topic:"detail",      stem:"PASSAGE: Attila the Hun agreed to peace terms with Roman Emperor Theodosius, but soon afterwards Attila discovered that Theodosius had formed a plot to murder him. He was so enraged at this that he again began war, plundering and burning cities wherever he went.\n\nQUESTION: After agreeing to peace, Attila resumed war against Rome because",                                                                                                                                                                                                            choices:["he discovered the emperor wanted to assassinate him","he wanted to further expand his kingdom","the emperor offered too little money in the peace terms","his second-in-command advised against accepting peace"],           answer:0, explanation:"The passage states Attila discovered the emperor had formed a plot to murder him, enraging him."},
+  {id:"PCD13", section:"PC", topic:"main_idea",   stem:"PASSAGE: In the military, competence is directly relevant to professional integrity. Because human life, national security, and public funds are at stake, the obligation to be competent is moral, not merely prudential. Culpable incompetence is a violation of professional integrity. Often professional integrity may be pitted against personal loyalties, and where stakes are high, professional integrity should win out.\n\nQUESTION: One word that best describes the primary theme of this passage is",                                                    choices:["proficiency","equality","evaluations","relationships"],                                                                                                                                                                     answer:0, explanation:"The passage opens and closes on the idea of competence and integrity — proficiency is the core theme."},
+  {id:"PCD14", section:"PC", topic:"detail",      stem:"PASSAGE: In the military, competence is directly relevant to professional integrity. Because human life, national security, and expenditures from the national treasury are at issue, the obligation to be competent isn't merely prudential — it is a moral one. Culpable incompetence is a clear violation of professional integrity.\n\nQUESTION: Professional competence is",                                                                                                                                                                                       choices:["a moral obligation","directly relevant to professional integrity","essential because military operations impact human life, national security, and taxpayer funds","all of the above"],                                       answer:3, explanation:"The passage supports all three statements — professional competence is all of the above."},
+  {id:"PCD15", section:"PC", topic:"inference",   stem:"PASSAGE: Fellow military members can spot failures of competence and conduct that interfere with the goals of the military mission. Often the obligations of professional integrity may be pitted against personal loyalties or friendships; and, where the stakes for society are so high, professional integrity should win out.\n\nQUESTION: The author of the passage would agree that",                                                                                                                                                                            choices:["friendship must often take a back seat to professional integrity","only fellow professionals should evaluate competence in all cases","professional competence is a direct result of effective training programs","all of the above"], answer:0, explanation:"The author explicitly states professional integrity 'should win out' over personal loyalties. Choice B overstates (the passage says 'in some instances'); C is not mentioned."},
+
+  // ─── ASVAB For Dummies Practice Exam 1 – MK ──────────────────────────────
+  {id:"MKD01", section:"MK", topic:"algebra",           stem:"Solve for x: 2x − 4 = 4",                                                                                                 choices:["2","−2","4","−4"],                                             answer:2, explanation:"2x = 8; x = 4."},
+  {id:"MKD02", section:"MK", topic:"number_theory",     stem:"The cube of 6 is",                                                                                                         choices:["125","225","216","238"],                                       answer:2, explanation:"6^3 = 6 × 6 × 6 = 216."},
+  {id:"MKD03", section:"MK", topic:"algebra",           stem:"A line is defined by y = x − 7. At what point does it intersect the x-axis?",                                              choices:["(7, 0)","(0, 7)","(0, 4)","(4, 0)"],                          answer:0, explanation:"Set y = 0: 0 = x − 7 → x = 7. The x-intercept is (7, 0)."},
+  {id:"MKD04", section:"MK", topic:"algebra",           stem:"If y = x + 1 and x + y = 11, find the value of x.",                                                                        choices:["3","5","7","8"],                                               answer:1, explanation:"Substitute y = x+1 into x+y=11: 2x+1=11 → x = 5."},
+  {id:"MKD05", section:"MK", topic:"algebra",           stem:"Solve for y: 3y + 12 = 0",                                                                                                 choices:["2","−2","4","−4"],                                             answer:3, explanation:"3y = −12; y = −4."},
+  {id:"MKD06", section:"MK", topic:"area_perimeter",    stem:"A segment totaling 12 yards and 14 feet is split in half. How long is each half (in feet)?",                               choices:["25 feet","12 feet","50 feet","8 feet"],                        answer:0, explanation:"12 yards = 36 ft. 36 + 14 = 50 ft total. 50 ÷ 2 = 25 feet."},
+  {id:"MKD07", section:"MK", topic:"number_theory",     stem:"Simplify: 5^2 × 5^3",                                                                                                     choices:["25^5","5^6","25^6","5^5"],                                     answer:3, explanation:"Same base: add exponents. 5^(2+3) = 5^5."},
+  {id:"MKD08", section:"MK", topic:"fractions",         stem:"Simplify: 1/2 + 3/10",                                                                                                    choices:["1/5","4/5","3/20","2/5"],                                      answer:1, explanation:"Convert to LCD 10: 5/10 + 3/10 = 8/10 = 4/5."},
+  {id:"MKD09", section:"MK", topic:"order_of_operations",stem:"Evaluate: 1.5 × 10^2",                                                                                                   choices:["45","150","1,500","15"],                                       answer:1, explanation:"Apply the exponent first: 10^2 = 100. Then 1.5 × 100 = 150."},
+  {id:"MKD10", section:"MK", topic:"statistics",        stem:"What is the average (mean) of 54, 61, 70, and 75?",                                                                        choices:["50","52","55","65"],                                           answer:3, explanation:"Sum = 54+61+70+75 = 260. 260 ÷ 4 = 65."},
+  {id:"MKD11", section:"MK", topic:"number_theory",     stem:"2 feet, 4 inches + 4 feet, 8 inches =",                                                                                   choices:["6 feet 8 inches","7 feet","7 feet 2 inches","8 feet"],         answer:1, explanation:"4 in + 8 in = 12 in = 1 ft. 2 ft + 4 ft + 1 ft = 7 feet."},
+  {id:"MKD12", section:"MK", topic:"algebra",           stem:"If x = 4, evaluate x^3",                                                                                                  choices:["12","36","64","72"],                                           answer:2, explanation:"4^3 = 4 × 4 × 4 = 64."},
+  {id:"MKD13", section:"MK", topic:"algebra",           stem:"Solve for x: −2x + 5 > 11",                                                                                               choices:["x > −3","x < −3","x > 3","x < 3"],                            answer:1, explanation:"−2x > 6 → divide by −2 and flip the sign → x < −3."},
+  {id:"MKD14", section:"MK", topic:"order_of_operations",stem:"Evaluate: 9 × 50",                                                                                                       choices:["45","450","55","550"],                                         answer:1, explanation:"9 × 50 = 450."},
+  {id:"MKD15", section:"MK", topic:"algebra",           stem:"If x = 2, evaluate: 4x^2",                                                                                                choices:["16","1/8","8","24"],                                           answer:0, explanation:"4 × (2^2) = 4 × 4 = 16."},
+  {id:"MKD16", section:"MK", topic:"algebra",           stem:"Solve for x: x^2 − 2x − 15 = 0",                                                                                         choices:["4, −2","3, −3","5, −3","−1, 1"],                              answer:2, explanation:"Factor: (x − 5)(x + 3) = 0 → x = 5 or x = −3."},
+  {id:"MKD17", section:"MK", topic:"number_theory",     stem:"Simplify: √49 ÷ √64",                                                                                                     choices:["9/16","7/4","49/64","7/8"],                                    answer:3, explanation:"√49 = 7, √64 = 8. 7 ÷ 8 = 7/8."},
+  {id:"MKD18", section:"MK", topic:"number_theory",     stem:"If y^2 = 16, then y is",                                                                                                  choices:["a positive number","a negative number","either a positive or negative number","an imaginary number"],  answer:2, explanation:"Both 4 and −4 satisfy y^2=16, so y can be either positive or negative."},
+  {id:"MKD19", section:"MK", topic:"algebra",           stem:"Solve for x: 2x + 3 > 11",                                                                                                choices:["x > 6","x < 4","x > 4","x < 6"],                              answer:2, explanation:"2x > 8 → x > 4. No sign flip needed (divided by positive 2)."},
+  {id:"MKD20", section:"MK", topic:"geometry",          stem:"If a circle has a radius of 15 feet, what is the best estimate of its circumference? (Use π ≈ 3.14)",                     choices:["24 feet","72 feet","94 feet","36 feet"],                       answer:2, explanation:"C = 2πr = 2 × 3.14 × 15 = 94.2 ≈ 94 feet."},
+  {id:"MKD21", section:"MK", topic:"geometry",          stem:"What is the volume of a box measuring 12 inches long by 8 inches deep by 10 inches high?",                                choices:["960 cubic inches","128 cubic inches","42 cubic inches","288 cubic inches"], answer:0, explanation:"V = l × w × h = 12 × 8 × 10 = 960 cubic inches."},
+  {id:"MKD22", section:"MK", topic:"geometry",          stem:"The sum of the measures of the interior angles of a parallelogram is",                                                     choices:["360 degrees","540 degrees","180 degrees","720 degrees"],       answer:0, explanation:"All quadrilaterals (including parallelograms) have interior angles totaling 360°."},
+  {id:"MKD23", section:"MK", topic:"number_theory",     stem:"What is the prime factorization of 100?",                                                                                  choices:["10^2","2^2 × 5^2","2 × 5 × 10","252"],                        answer:1, explanation:"100 = 4 × 25 = 2^2 × 5^2. Both 2 and 5 are prime."},
+  {id:"MKD24", section:"MK", topic:"number_theory",     stem:"√(−25) is an example of a(n)",                                                                                            choices:["real number","imaginary number","irrational number","rational number"],  answer:1, explanation:"The square root of a negative number is imaginary — it does not exist in the real number system."},
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONFIG
+// ─────────────────────────────────────────────────────────────────────────────
+const SECTION_INFO = {
+  AR: {name:"PART 1 - Arithmetic Reasoning",  short:"AR", minutes:55, count:15},
+  WK: {name:"PART 2 - Word Knowledge",        short:"WK", minutes:9,  count:15},
+  PC: {name:"PART 3 - Paragraph Comprehension", short:"PC", minutes:27, count:10},
+  MK: {name:"PART 4 - Mathematics Knowledge", short:"MK", minutes:31, count:15},
+};
+const FULL_ORDER = ["AR","WK","PC","MK"];
+const TOPIC_LABELS = {
+  fractions:"Fractions & Decimals", percentages:"Percentages",
+  rates_ratios:"Rates & Ratios", money:"Money & Budgets",
+  time_distance:"Time & Distance", work_problems:"Work Problems",
+  area_perimeter:"Area & Perimeter", synonyms:"Synonyms / Vocabulary",
+  main_idea:"Main Idea", detail:"Detail Recall",
+  inference:"Inference", cause_effect:"Cause & Effect",
+  algebra:"Algebra", geometry:"Geometry",
+  number_theory:"Number Theory", statistics:"Statistics",
+  order_of_operations:"Order of Operations",
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DOM HELPERS  (safe — no innerHTML with variable data on the exam screen)
+// ─────────────────────────────────────────────────────────────────────────────
+function el(id){ return document.getElementById(id); }
+function ce(tag, cls){ const n = document.createElement(tag); if(cls) n.className = cls; return n; }
+function txt(tag, cls, text){ const n = ce(tag, cls); n.textContent = text; return n; }
+
+// Safe DOM-based results building (all variable content via textContent)
+function makeResultsTable(sections){
+  const t = ce("table","results-table");
+  const head = t.insertRow(); head.style.fontWeight = "bold";
+  ["Section","Correct","Total","Score"].forEach(h=>{
+    const th = document.createElement("th"); th.textContent = h; head.appendChild(th);
+  });
+  sections.forEach(sec=>{
+    let correct = 0;
+    sec.questions.forEach((q,i)=>{ if(sec.answers[i]===q.answer) correct++; });
+    const pct = Math.round(correct/sec.questions.length*100);
+    const barClass = pct>=70?"score-bar":pct>=50?"score-bar mid":"score-bar low";
+    const row = t.insertRow();
+    const tdName = row.insertCell(); tdName.textContent = SECTION_INFO[sec.code].name; tdName.style.fontWeight="bold";
+    row.insertCell().textContent = correct;
+    row.insertCell().textContent = sec.questions.length;
+    const tdScore = row.insertCell();
+    const wrap = ce("div","row"); wrap.style.cssText="gap:8px;flex-wrap:nowrap";
+    const pctSpan = ce("span"); pctSpan.textContent = pct+"%";
+    const barWrap = ce("div","score-bar-wrap");
+    const bar = ce("div",barClass); bar.style.width = pct+"%";
+    barWrap.appendChild(bar); wrap.appendChild(pctSpan); wrap.appendChild(barWrap);
+    tdScore.appendChild(wrap);
+  });
+  return t;
+}
+
+function makeTopicTable(missedTopics){
+  if(!missedTopics.length) return null;
+  const wrap = ce("div");
+  wrap.appendChild(txt("h2",null,"Weak-area breakdown"));
+  wrap.appendChild(txt("p","subtle","Topics with at least one missed item, sorted by accuracy."));
+  const t = ce("table","topic-table");
+  const head = t.insertRow();
+  ["Topic","Correct","Total","Accuracy"].forEach(h=>{
+    const th = document.createElement("th"); th.textContent=h; head.appendChild(th);
+  });
+  missedTopics.forEach(([topic,v])=>{
+    const pct = Math.round(v.correct/v.total*100);
+    const barClass = pct>=70?"score-bar":pct>=50?"score-bar mid":"score-bar low";
+    const row = t.insertRow();
+    row.insertCell().textContent = TOPIC_LABELS[topic]||topic;
+    row.insertCell().textContent = v.correct;
+    row.insertCell().textContent = v.total;
+    const tdScore = row.insertCell();
+    const bw = ce("div","score-bar-wrap");
+    const b = ce("div",barClass); b.style.width=pct+"%";
+    bw.appendChild(b);
+    const sp = ce("span"); sp.textContent=pct+"% "; sp.style.marginRight="4px";
+    tdScore.appendChild(sp); tdScore.appendChild(bw);
+  });
+  wrap.appendChild(t);
+  return wrap;
+}
+
+function makeMissedItemsBlock(sections){
+  const wrap = ce("div");
+  wrap.appendChild(txt("h2",null,"Missed items review"));
+  let anyMissed = false;
+  sections.forEach(sec=>{
+    const missed = sec.questions.map((q,i)=>({q,i})).filter(({q,i})=>sec.answers[i]!==q.answer);
+    if(!missed.length) return;
+    anyMissed = true;
+    const card = ce("div","card"); card.style.cssText="margin-top:12px;padding:16px;";
+    card.appendChild(txt("h3",null,SECTION_INFO[sec.code].name));
+    missed.forEach(({q,i})=>{
+      const userAns = sec.answers[i];
+      const note = ce("div","note"); note.style.marginBottom="10px";
+
+      const qLine = ce("div");
+      const qBold = ce("strong"); qBold.textContent = "Q"+(i+1)+". ";
+      qLine.appendChild(qBold);
+      // stem may have newlines; split and rejoin with <br> via DOM
+      const stemParts = q.stem.split("\n");
+      stemParts.forEach((part,pi)=>{
+        qLine.appendChild(document.createTextNode(part));
+        if(pi < stemParts.length-1) qLine.appendChild(document.createElement("br"));
+      });
+      note.appendChild(qLine);
+
+      const yourDiv = ce("div"); yourDiv.style.cssText="margin-top:8px;color:var(--bad)";
+      const yb = ce("strong"); yb.textContent = "Your answer: ";
+      yourDiv.appendChild(yb);
+      if(userAns==null){
+        yourDiv.appendChild(document.createTextNode("-- (blank)"));
+      } else {
+        yourDiv.appendChild(document.createTextNode(String.fromCharCode(65+userAns)+")  "+q.choices[userAns]));
+      }
+      note.appendChild(yourDiv);
+
+      const corrDiv = ce("div"); corrDiv.style.color="var(--good)";
+      const cb = ce("strong"); cb.textContent="Correct: ";
+      corrDiv.appendChild(cb);
+      corrDiv.appendChild(document.createTextNode(String.fromCharCode(65+q.answer)+")  "+q.choices[q.answer]));
+      note.appendChild(corrDiv);
+
+      const expDiv = ce("div","subtle"); expDiv.style.marginTop="6px";
+      expDiv.textContent = q.explanation;
+      note.appendChild(expDiv);
+
+      card.appendChild(note);
+    });
+    wrap.appendChild(card);
+  });
+  if(!anyMissed){
+    const s = ce("div","note success"); s.textContent="Perfect session -- no missed items.";
+    wrap.appendChild(s);
+  }
+  return wrap;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FLAGGED ITEMS (results view)
+// ─────────────────────────────────────────────────────────────────────────────
+function makeFlaggedItemsBlock(sections){
+  // Collect all flagged questions across sections
+  const flagged=[];
+  sections.forEach(sec=>{
+    sec.questions.forEach((q,i)=>{
+      if(sec.flagged[i]){
+        const isCorrect=sec.answers[i]===q.answer;
+        flagged.push({q, i, sec, isCorrect, userAns:sec.answers[i]});
+      }
+    });
+  });
+  if(!flagged.length) return null; // nothing flagged — don't render the section
+
+  const wrap=ce("div");
+  const h2=ce("h2"); h2.textContent="⚑ Flagged questions"; wrap.appendChild(h2);
+  const sub=ce("p","subtle"); sub.style.marginTop="-8px";
+  sub.textContent="Questions you flagged during the test.";
+  wrap.appendChild(sub);
+
+  flagged.forEach(({q,i,sec,isCorrect,userAns})=>{
+    const note=ce("div","note"); note.style.cssText="margin-bottom:10px;";
+    if(isCorrect) note.style.borderColor="#86efac";
+    else note.style.borderColor="#fecaca";
+
+    // Header: Q#, section, ✓/✗
+    const header=ce("div"); header.style.cssText="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;";
+    const qLabel=ce("strong");
+    qLabel.textContent=SECTION_INFO[sec.code].name+" Q"+(i+1);
+    const badge=ce("span");
+    badge.textContent=isCorrect?"✓ Correct":"✗ Incorrect";
+    badge.style.cssText="font-size:13px;font-weight:700;color:"+(isCorrect?"var(--good)":"var(--bad)");
+    header.appendChild(qLabel); header.appendChild(badge);
+    note.appendChild(header);
+
+    // Stem
+    const stemDiv=ce("div"); stemDiv.style.marginBottom="8px";
+    const stemParts=q.stem.split("\n");
+    stemParts.forEach((part,pi)=>{
+      stemDiv.appendChild(document.createTextNode(part));
+      if(pi<stemParts.length-1) stemDiv.appendChild(document.createElement("br"));
+    });
+    note.appendChild(stemDiv);
+
+    // Your answer
+    const yourDiv=ce("div"); yourDiv.style.cssText="color:"+(isCorrect?"var(--good)":"var(--bad)");
+    const yb=ce("strong"); yb.textContent="Your answer: ";
+    yourDiv.appendChild(yb);
+    if(userAns==null){
+      yourDiv.appendChild(document.createTextNode("-- (blank)"));
+    } else {
+      yourDiv.appendChild(document.createTextNode(String.fromCharCode(65+userAns)+")  "+q.choices[userAns]));
+    }
+    note.appendChild(yourDiv);
+
+    // Correct answer (only show if wrong)
+    if(!isCorrect){
+      const corrDiv=ce("div"); corrDiv.style.color="var(--good)";
+      const cb=ce("strong"); cb.textContent="Correct: ";
+      corrDiv.appendChild(cb);
+      corrDiv.appendChild(document.createTextNode(String.fromCharCode(65+q.answer)+")  "+q.choices[q.answer]));
+      note.appendChild(corrDiv);
+    }
+
+    // Explanation
+    const expDiv=ce("div","subtle"); expDiv.style.marginTop="6px";
+    expDiv.textContent=q.explanation;
+    note.appendChild(expDiv);
+
+    wrap.appendChild(note);
+  });
+  return wrap;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SHARE RESULTS
+// ─────────────────────────────────────────────────────────────────────────────
+function buildShareText(){
+  const studentName=(el("studentName").value||"Student").trim();
+  const now=new Date();
+  const dateStr=now.toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"});
+
+  let text="AFQT Practice Results – "+studentName+"\n";
+  text+="Date: "+dateStr+"\n\n";
+
+  // Section scores
+  text+="📊 Scores\n";
+  let totalCorrect=0, totalItems=0;
+  app.sections.forEach(s=>{
+    let correct=0;
+    s.questions.forEach((q,i)=>{ if(s.answers[i]===q.answer) correct++; });
+    totalCorrect+=correct; totalItems+=s.questions.length;
+    const pct=Math.round(correct/s.questions.length*100);
+    text+=SECTION_INFO[s.code].name+": "+correct+"/"+s.questions.length+" ("+pct+"%)\n";
+  });
+  text+="Overall: "+totalCorrect+"/"+totalItems+" ("+Math.round(totalCorrect/totalItems*100)+"%)\n";
+
+  // Flagged questions
+  const flaggedItems=[];
+  app.sections.forEach(s=>{
+    s.questions.forEach((q,i)=>{
+      if(s.flagged[i]) flaggedItems.push({q,i,s,isCorrect:s.answers[i]===q.answer,userAns:s.answers[i]});
+    });
+  });
+  if(flaggedItems.length){
+    text+="\n⚑ Flagged Questions ("+flaggedItems.length+")\n";
+    flaggedItems.forEach(({q,i,s,isCorrect,userAns})=>{
+      text+="──────────────\n";
+      text+=SECTION_INFO[s.code].name+" Q"+(i+1)+" "+(isCorrect?"✓":"✗")+"\n";
+      text+=q.stem+"\n";
+      if(userAns!=null) text+="Your answer: "+String.fromCharCode(65+userAns)+") "+q.choices[userAns]+"\n";
+      else text+="Your answer: (blank)\n";
+      if(!isCorrect) text+="Correct: "+String.fromCharCode(65+q.answer)+") "+q.choices[q.answer]+"\n";
+      text+=q.explanation+"\n";
+    });
+  }
+
+  // Missed questions
+  const missedItems=[];
+  app.sections.forEach(s=>{
+    s.questions.forEach((q,i)=>{
+      if(s.answers[i]!==q.answer) missedItems.push({q,i,s,userAns:s.answers[i]});
+    });
+  });
+  if(missedItems.length){
+    text+="\n✗ Missed Questions ("+missedItems.length+")\n";
+    missedItems.forEach(({q,i,s,userAns})=>{
+      text+="──────────────\n";
+      text+=SECTION_INFO[s.code].name+" Q"+(i+1)+"\n";
+      text+=q.stem+"\n";
+      if(userAns!=null) text+="Your answer: "+String.fromCharCode(65+userAns)+") "+q.choices[userAns]+"\n";
+      else text+="Your answer: (blank)\n";
+      text+="Correct: "+String.fromCharCode(65+q.answer)+") "+q.choices[q.answer]+"\n";
+      text+=q.explanation+"\n";
+    });
+  }
+
+  return text;
+}
+
+async function shareResults(){
+  const text=buildShareText();
+  const studentName=(el("studentName").value||"Student").trim();
+  const title="AFQT Practice Results – "+studentName;
+
+  if(navigator.share){
+    try{
+      await navigator.share({ title, text });
+      return;
+    } catch(e){
+      if(e.name==="AbortError") return; // user dismissed — that's fine
+    }
+  }
+  // Fallback: copy to clipboard
+  try{
+    await navigator.clipboard.writeText(text);
+    const btn=el("shareBtn");
+    btn.textContent="✓ Copied!";
+    setTimeout(()=>btn.textContent="📤 Share with tutor",2200);
+  } catch(e){
+    alert("Couldn't copy automatically. Here are your results:\n\n"+text);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────────────────────────
+let app = null;
+let timerHandle = null;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UTILITIES
+// ─────────────────────────────────────────────────────────────────────────────
+function shuffle(arr){
+  const out=[...arr];
+  for(let i=out.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[out[i],out[j]]=[out[j],out[i]];}
+  return out;
+}
+function getMultiplier(v){ if(v==="off") return null; if(v==="standard") return 1; return parseFloat(v); }
+function fmtTime(secs){
+  if(secs==null) return "Timer off";
+  return Math.floor(secs/60)+":"+String(secs%60).padStart(2,"0");
+}
+
+function showScreen(name){
+  ["setupScreen","transitionScreen","examScreen","sectionReviewScreen","resultsScreen"]
+    .forEach(id=> el(id).classList.remove("active"));
+  el(name+"Screen").classList.add("active");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NOTES
+// ─────────────────────────────────────────────────────────────────────────────
+function loadNotes(){
+  const v=localStorage.getItem("afqt_notes")||"";
+  el("globalNotes").value=v; el("inlineNotes").value=v;
+}
+function saveNotes(){
+  const v=el("inlineNotes").value||el("globalNotes").value||"";
+  localStorage.setItem("afqt_notes",v);
+  el("globalNotes").value=v; el("inlineNotes").value=v;
+  el("saveNotesMsg").textContent="Saved.";
+  setTimeout(()=>el("saveNotesMsg").textContent="",1400);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SESSION
+// ─────────────────────────────────────────────────────────────────────────────
+function buildSession(){
+  const type=el("sessionType").value, mode=el("mode").value, tmr=el("timerMode").value;
+  const secCodes=type==="FULL"?FULL_ORDER:[type];
+  const mult=getMultiplier(tmr);
+  const sections=secCodes.map(code=>{
+    const info=SECTION_INFO[code];
+    const qs=shuffle(QUESTION_BANK.filter(q=>q.section===code)).slice(0,info.count);
+    return {
+      code, questions:qs,
+      answers:Array(qs.length).fill(null),
+      flagged:Array(qs.length).fill(false),
+      submittedIndices:Array(qs.length).fill(false),
+      currentIndex:0,
+      secondsRemaining:mult==null?null:Math.round(info.minutes*60*mult),
+      completed:false
+    };
+  });
+  return {mode, timerMode:tmr, sectionPointer:0, sections};
+}
+
+function sec(){ return app.sections[app.sectionPointer]; }
+function curQ(){ return sec().questions[sec().currentIndex]; }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TIMER
+// ─────────────────────────────────────────────────────────────────────────────
+function startTimer(){
+  stopTimer();
+  const s=sec();
+  if(s.secondsRemaining==null) return;
+  timerHandle=setInterval(()=>{
+    s.secondsRemaining--;
+    if(s.secondsRemaining<=0){ s.secondsRemaining=0; stopTimer(); autoAdvance(); }
+    if(el("examScreen").classList.contains("active")) updateStatus();
+  },1000);
+}
+function stopTimer(){ if(timerHandle){clearInterval(timerHandle);timerHandle=null;} }
+function autoAdvance(){
+  const s=sec();
+  if(app.mode==="realistic"&&s.answers[s.currentIndex]!=null) s.submittedIndices[s.currentIndex]=true;
+  finishSection();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RENDER EXAM
+// ─────────────────────────────────────────────────────────────────────────────
+function renderExam(){
+  const s=sec(), q=curQ(), info=SECTION_INFO[s.code];
+
+  el("modeBadge").textContent = app.mode==="realistic"?"CAT-like":"Tutor mode";
+  el("timerBadge").textContent = app.timerMode==="off"?"Timer off":
+    app.timerMode==="standard"?"Standard timer": app.timerMode+"x timer";
+  el("sectionTitle").textContent = info.name;
+  el("sectionMeta").textContent = "Question "+(s.currentIndex+1)+" of "+s.questions.length;
+  el("progressFill").style.width = ((s.currentIndex+1)/s.questions.length*100)+"%";
+  el("questionStem").textContent = q.stem;
+  el("qmapNote").textContent = app.mode==="tutor"?"Click any number to jump.":"Read-only in CAT-like mode.";
+
+  // choices (all via textContent - no innerHTML)
+  const choicesEl = el("choices");
+  choicesEl.textContent="";
+  const selected=s.answers[s.currentIndex];
+  q.choices.forEach((choice,idx)=>{
+    const btn=ce("button","choice"+(selected===idx?" selected":""));
+    const letter=ce("div","choice-letter"); letter.textContent=String.fromCharCode(65+idx);
+    const text=ce("div","choice-text"); text.textContent=choice;
+    btn.appendChild(letter); btn.appendChild(text);
+    btn.addEventListener("click",()=>selectChoice(idx));
+    choicesEl.appendChild(btn);
+  });
+
+  const flagged=s.flagged[s.currentIndex];
+  el("flagBtn").textContent = flagged?"Unflag":"Flag";
+  el("prevBtn").style.display = app.mode==="tutor"?"inline-block":"none";
+  el("prevBtn").disabled = s.currentIndex===0;
+  el("nextBtn").disabled = s.answers[s.currentIndex]==null;
+  el("nextBtn").textContent = s.currentIndex===s.questions.length-1
+    ?(app.mode==="tutor"?"Review section":"Submit section"):"Next";
+
+  updateStatus();
+  renderMap();
+  showScreen("exam");
+}
+
+function updateStatus(){
+  const s=sec();
+  const secs=s.secondsRemaining;
+  const isDanger=secs!=null&&secs<=60;
+  const isWarn=secs!=null&&secs<=180&&!isDanger;
+  const box=el("statusBox");
+  box.className="status-box"+(isDanger?" danger-time":isWarn?" warn-time":"");
+  el("statusTime").textContent = fmtTime(secs);
+  el("statusCount").textContent = (sec().currentIndex+1)+" / "+sec().questions.length;
+}
+
+function renderMap(){
+  const s=sec();
+  const grid=el("reviewGrid");
+  grid.textContent="";
+  s.questions.forEach((_,idx)=>{
+    const chip=ce("button","qchip");
+    if(s.answers[idx]!=null) chip.classList.add("answered");
+    if(s.flagged[idx]) chip.classList.add("flagged");
+    if(s.currentIndex===idx) chip.classList.add("current");
+    chip.textContent=idx+1;
+    chip.disabled=app.mode!=="tutor";
+    chip.addEventListener("click",()=>{if(app.mode==="tutor"){sec().currentIndex=idx;renderExam();}});
+    grid.appendChild(chip);
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ACTIONS
+// ─────────────────────────────────────────────────────────────────────────────
+function selectChoice(idx){
+  const s=sec();
+  if(app.mode==="realistic"&&s.submittedIndices[s.currentIndex]) return;
+  s.answers[s.currentIndex]=idx;
+  el("nextBtn").disabled=false;
+  document.querySelectorAll(".choice").forEach((c,i)=>c.classList.toggle("selected",i===idx));
+  renderMap();
+}
+
+function nextAction(){
+  const s=sec();
+  if(s.answers[s.currentIndex]==null) return;
+  if(app.mode==="realistic") s.submittedIndices[s.currentIndex]=true;
+  if(s.currentIndex<s.questions.length-1){ s.currentIndex++; renderExam(); return; }
+  if(app.mode==="tutor") renderSectionReview(); else finishSection();
+}
+function prevAction(){
+  const s=sec();
+  if(app.mode!=="tutor"||s.currentIndex===0) return;
+  s.currentIndex--; renderExam();
+}
+function toggleFlag(){
+  const s=sec();
+  s.flagged[s.currentIndex]=!s.flagged[s.currentIndex];
+  el("flagBtn").textContent=s.flagged[s.currentIndex]?"Unflag":"Flag";
+  renderMap();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION REVIEW (tutor mode)
+// ─────────────────────────────────────────────────────────────────────────────
+function renderSectionReview(){
+  const s=sec();
+  el("reviewTitle").textContent=SECTION_INFO[s.code].name+" - Review";
+  const grid=el("finalReviewGrid"); grid.textContent="";
+  s.questions.forEach((_,idx)=>{
+    const chip=ce("button","qchip");
+    if(s.answers[idx]!=null) chip.classList.add("answered");
+    if(s.flagged[idx]) chip.classList.add("flagged");
+    chip.textContent=idx+1;
+    chip.addEventListener("click",()=>{sec().currentIndex=idx;renderExam();});
+    grid.appendChild(chip);
+  });
+  showScreen("sectionReview");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION TRANSITION
+// ─────────────────────────────────────────────────────────────────────────────
+function finishSection(){
+  stopTimer();
+  const s=sec(); s.completed=true;
+  let correct=0;
+  s.questions.forEach((q,i)=>{ if(s.answers[i]===q.answer) correct++; });
+  const pct=Math.round(correct/s.questions.length*100);
+
+  if(app.sectionPointer<app.sections.length-1){
+    const nextSecCode=app.sections[app.sectionPointer+1].code;
+    el("transCompleteName").textContent=SECTION_INFO[s.code].name;
+    el("transScore").textContent=correct+" / "+s.questions.length;
+    el("transScoreDetail").textContent=pct+"% correct";
+    el("transNextLabel").textContent="Next up: "+SECTION_INFO[nextSecCode].name;
+    showScreen("transition");
+  } else {
+    renderResults();
+  }
+}
+
+function beginNextSection(){
+  app.sectionPointer++;
+  startTimer();
+  renderExam();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RESULTS
+// ─────────────────────────────────────────────────────────────────────────────
+function renderResults(){
+  showScreen("results");
+  stopTimer();
+
+  // Build per-topic stats
+  const topicStats={};
+  let totalCorrect=0, totalItems=0;
+  app.sections.forEach(s=>{
+    let correct=0;
+    s.questions.forEach((q,i)=>{
+      const t=q.topic||"other";
+      if(!topicStats[t]) topicStats[t]={correct:0,total:0};
+      topicStats[t].total++;
+      if(s.answers[i]===q.answer){ correct++; topicStats[t].correct++; }
+    });
+    totalCorrect+=correct; totalItems+=s.questions.length;
+  });
+
+  // Section score table
+  const tableContainer = el("resultsTable").parentElement;
+  const oldTable = el("resultsTable");
+  const newTable = makeResultsTable(app.sections);
+  newTable.id = "resultsTable";
+  tableContainer.replaceChild(newTable, oldTable);
+
+  // Overall summary
+  const ovPct=Math.round(totalCorrect/totalItems*100);
+  const ovEl=el("overallSummary");
+  ovEl.textContent="";
+  const b=ce("strong"); b.textContent="Practice composite raw score: ";
+  ovEl.appendChild(b);
+  ovEl.appendChild(document.createTextNode(totalCorrect+" / "+totalItems+" ("+ovPct+"%)"));
+  ovEl.appendChild(document.createElement("br"));
+  const sub=ce("span","subtle");
+  sub.textContent="Useful for tutoring trend analysis. Not an official AFQT percentile.";
+  ovEl.appendChild(sub);
+
+  // Topic breakdown
+  const missedTopics=Object.entries(topicStats)
+    .filter(([,v])=>v.correct<v.total)
+    .sort((a,b)=>(a[1].correct/a[1].total)-(b[1].correct/b[1].total));
+  const tbEl=el("topicBreakdown");
+  tbEl.textContent="";
+  const topicNode=makeTopicTable(missedTopics);
+  if(topicNode) tbEl.appendChild(topicNode);
+
+  // Flagged items
+  const flagEl=el("flaggedItemsWrap");
+  flagEl.textContent="";
+  const flagBlock=makeFlaggedItemsBlock(app.sections);
+  if(flagBlock) flagEl.appendChild(flagBlock);
+
+  // Missed items
+  const miEl=el("missedItemsWrap");
+  miEl.textContent="";
+  miEl.appendChild(makeMissedItemsBlock(app.sections));
+
+  // Log session to server
+  logSession(totalCorrect, totalItems);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SESSION LOGGING
+// ─────────────────────────────────────────────────────────────────────────────
+function logSession(totalCorrect, totalItems){
+  const studentName = (el("studentName").value || "Student").trim();
+  const payload = {
+    studentName,
+    timestamp: new Date().toISOString(),
+    mode: app.mode,
+    sessionType: el("sessionType").value,
+    totalCorrect,
+    totalItems,
+    sections: app.sections.map(s=>{
+      let correct=0;
+      const questions = s.questions.map((q,i)=>{
+        const isCorrect = s.answers[i]===q.answer;
+        if(isCorrect) correct++;
+        return {
+          id: q.id,
+          section: q.section,
+          topic: q.topic,
+          stem: q.stem,
+          choices: q.choices,
+          correctIndex: q.answer,
+          correctText: q.choices[q.answer],
+          studentIndex: s.answers[i]??null,
+          studentText: s.answers[i]!=null ? q.choices[s.answers[i]] : "No answer",
+          correct: isCorrect,
+          flagged: s.flagged[i]||false,
+          explanation: q.explanation,
+        };
+      });
+      return { code:s.code, score:correct, total:s.questions.length, questions };
+    }),
+  };
+  fetch("/api/log", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify(payload),
+  }).catch(()=>{}); // fire-and-forget; don't block the results screen
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SESSION START
+// ─────────────────────────────────────────────────────────────────────────────
+function startSession(){
+  app=buildSession();
+  el("inlineNotes").value=el("globalNotes").value;
+  startTimer();
+  renderExam();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EVENT LISTENERS
+// ─────────────────────────────────────────────────────────────────────────────
+el("startBtn").addEventListener("click",startSession);
+el("demoTutorBtn").addEventListener("click",()=>{
+  el("sessionType").value="FULL"; el("mode").value="tutor"; el("timerMode").value="off";
+  startSession();
+});
+el("nextBtn").addEventListener("click",nextAction);
+el("prevBtn").addEventListener("click",prevAction);
+el("flagBtn").addEventListener("click",toggleFlag);
+el("returnToSectionBtn").addEventListener("click",()=>renderExam());
+el("submitSectionBtn").addEventListener("click",()=>finishSection());
+el("transBeginBtn").addEventListener("click",beginNextSection);
+el("restartBtn").addEventListener("click",()=>{ stopTimer(); showScreen("setup"); });
+el("shareBtn").addEventListener("click",shareResults);
+el("saveNotesBtn").addEventListener("click",saveNotes);
+el("globalNotes").addEventListener("input",()=>el("inlineNotes").value=el("globalNotes").value);
+el("inlineNotes").addEventListener("input",()=>el("globalNotes").value=el("inlineNotes").value);
+
+document.addEventListener("keydown",e=>{
+  if(!app||!el("examScreen").classList.contains("active")) return;
+  const k=e.key.toLowerCase();
+  if(["a","b","c","d"].includes(k)) selectChoice(k.charCodeAt(0)-97);
+  if(k==="n") nextAction();
+  if(k==="f") toggleFlag();
+  if(k==="p") prevAction();
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────────────────────────────────
+loadNotes();
+</script>
+</body>
+</html>
