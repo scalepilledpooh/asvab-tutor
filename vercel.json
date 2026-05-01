@@ -1,5 +1,7 @@
 {
   "rewrites": [
-    { "source": "/", "destination": "/afqt_simulator.html" }
+    { "source": "/", "destination": "/afqt_simulator.html" },
+    { "source": "/gre", "destination": "/gre_simulator.html" },
+    { "source": "/asvab", "destination": "/afqt_simulator.html" }
   ]
 }
