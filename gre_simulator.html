@@ -114,10 +114,20 @@
     .big-score { font-size: 38px; }
     .calc { width: calc(100% - 40px); }
   }
+  .mode-nav { display: flex; gap: 8px; margin-bottom: 18px; }
+  .mode-nav a { padding: 8px 18px; border-radius: 10px; border: 2px solid var(--accent); text-decoration: none; font-weight: 700; font-size: 14px; transition: background 0.15s, color 0.15s; }
+  .mode-nav a.active { background: var(--accent); color: #fff; }
+  .mode-nav a:not(.active) { background: #fff; color: var(--accent); }
+  .mode-nav a:not(.active):hover { background: var(--accent-soft); }
 </style>
 </head>
 <body>
 <div class="app">
+
+<nav class="mode-nav">
+  <a href="/asvab">ASVAB / AFQT</a>
+  <a href="/gre" class="active">GRE Quant</a>
+</nav>
 
 <!-- ─────────────────────────────────────────────────────────────────────── -->
 <!-- SETUP SCREEN -->

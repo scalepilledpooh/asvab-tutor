@@ -120,10 +120,20 @@
     .results-table th, .results-table td { padding: 8px 6px; font-size: 13px; }
     .topic-table th, .topic-table td { font-size: 12px; }
   }
+  .mode-nav { display: flex; gap: 8px; margin-bottom: 18px; }
+  .mode-nav a { padding: 8px 18px; border-radius: 10px; border: 2px solid var(--accent); text-decoration: none; font-weight: 700; font-size: 14px; transition: background 0.15s, color 0.15s; }
+  .mode-nav a.active { background: var(--accent); color: #fff; }
+  .mode-nav a:not(.active) { background: #fff; color: var(--accent); }
+  .mode-nav a:not(.active):hover { background: var(--accent-soft); }
 </style>
 </head>
 <body>
 <div class="app">
+
+<nav class="mode-nav">
+  <a href="/asvab" class="active">ASVAB / AFQT</a>
+  <a href="/gre">GRE Quant</a>
+</nav>
 
 <!-- SETUP SCREEN -->
 <div id="setupScreen" class="screen active">
