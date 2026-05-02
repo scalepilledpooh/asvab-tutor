@@ -46,12 +46,17 @@
   .question-header { color: #1e3a8a; font-size: 28px; font-weight: 700; text-align: center; margin: 8px 0 4px; }
   .question-meta { text-align: center; font-size: 14px; color: var(--muted); margin-bottom: 12px; }
   .question-stem { font-size: 22px; line-height: 1.55; white-space: pre-wrap; margin: 16px auto 18px; max-width: 760px; }
+  .language-support-toggle { max-width: 760px; margin: -4px auto 18px; display: flex; justify-content: flex-start; }
   .language-support { max-width: 760px; margin: -4px auto 18px; border: 1px solid #bfdbfe; background: #eff6ff; border-radius: 10px; padding: 12px 14px; }
   .language-support h3 { margin: 0 0 8px; font-size: 15px; color: #1e3a8a; }
   .language-support .dari-line { margin: 6px 0; font-size: 15px; line-height: 1.45; }
   .language-support .dari-text { direction: rtl; unicode-bidi: plaintext; font-family: Arial, Helvetica, sans-serif; }
   .language-support .context-line { color: #374151; }
   .language-support .term-list { display: grid; gap: 6px; margin-top: 8px; }
+  .language-support .support-actions { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .language-support .support-section { margin-top: 10px; padding-top: 10px; border-top: 1px solid #bfdbfe; }
+  .language-support .support-label { display: inline-block; font-size: 11px; font-weight: 700; color: #1e40af; text-transform: uppercase; letter-spacing: 0.04em; margin-right: 6px; }
+  .language-support .quiet-badge { display: inline-block; padding: 2px 6px; border-radius: 999px; background: #dbeafe; color: #1e40af; font-size: 11px; font-weight: 700; margin-left: 4px; }
   .language-toggle { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #f8fafc; }
   .language-toggle input { margin-top: 3px; }
   .choices { max-width: 760px; margin: 0 auto; display: grid; gap: 12px; }
@@ -709,8 +714,12 @@ function getDariSupport(q){
     const term = extractWordKnowledgeTerm(q);
     const entry = DARI_WORDS[term];
     if(!entry) return null;
+    const simpleEnglish = entry[1].split(";")[0].replace(/\.$/,".");
     return {
       title:"Dari vocabulary help",
+      kind:"word",
+      term,
+      simpleEnglish,
       terms:[[term, entry[0], entry[1]]],
       context:"Use the Dari meaning to understand the English word, then pick the closest English answer."
     };
@@ -718,9 +727,48 @@ function getDariSupport(q){
   if(q.section==="PC"){
     const entry = DARI_PASSAGE_SUPPORT[q.id];
     if(!entry) return null;
-    return {title:"Dari reading help", terms:entry.terms, context:entry.context};
+    return {title:"Dari reading help", kind:"paragraph", terms:entry.terms, context:entry.context, routine:readingRoutineFor(q)};
   }
   return null;
+}
+function supportKey(q){ return q.id; }
+function supportStage(q){ return (app.dariHelp && app.dariHelp[supportKey(q)]) || 0; }
+function setSupportStage(q, stage){
+  if(!app.dariHelp) app.dariHelp = {};
+  app.dariHelp[supportKey(q)] = Math.max(stage, supportStage(q));
+  renderExam();
+}
+function readingRoutineFor(q){
+  const routines = {
+    detail:["This item asks for a detail. Find the sentence that says it directly.","جزییات را پیدا کن. جمله ای را پیدا کن که جواب را مستقیم می گوید.","Which sentence gives the answer?","Say the answer in a short English phrase."],
+    main_idea:["This item asks for the main idea. Read the first and last sentences carefully.","این سوال مفهوم اصلی را می پرسد. جمله اول و آخر را با دقت بخوان.","What is the paragraph mostly about?","Say the paragraph in one short sentence."],
+    inference:["This item asks for an inference. Use clues, but do not add outside information.","این سوال نتیجه گیری می خواهد. از نشانه های متن استفاده کن، اما معلومات بیرونی اضافه نکن.","What clue supports your answer?","Say what the passage suggests, not just what it says."],
+    cause_effect:["This item asks for cause and effect. Look for why something happened and what happened after.","این سوال سبب و نتیجه را می پرسد. ببین چرا چیزی اتفاق افتاد و بعد چه شد.","What caused the change or result?","Say the cause and result in one sentence."]
+  };
+  const r = routines[q.topic] || routines.detail;
+  return {primer:r[0], primerDari:r[1], evidence:r[2], summary:r[3]};
+}
+function inferPartOfSpeech(q){
+  if(/^Select the word closest/i.test(q.stem)) return "word";
+  if(/\bmost nearly means:?$/i.test(q.stem)) return "vocabulary word";
+  return "word";
+}
+function wordExample(term, simpleEnglish){
+  const clean = simpleEnglish.replace(/^to /i,"").replace(/\.$/,"").toLowerCase();
+  return "The sentence around the word shows that " + term + " means " + clean + ".";
+}
+function wordPhraseFrame(term){
+  if(/^(reluctant|hesitate|deteriorate|decamp|detest|conclude|permit|maintain|conceal|allocate|observe|hector|fondle|fete)$/.test(term)) return term + " + action / object";
+  if(/^(abundant|scarce|ample|adequate|vital|rigid|hostile|diligent|transparent|persistent|agile|trivial|futile|serene|legitimate|prudent|concise|abhorrent|vapid|extraneous|solicitous|limpid|indigenous|illusive|acerbic|inexorable|gauche|confident)$/.test(term)) return term + " + noun";
+  return "the meaning of " + term;
+}
+function speakEnglish(text){
+  if(!("speechSynthesis" in window)) return;
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = "en-US";
+  utterance.rate = 0.82;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utterance);
 }
 function renderDariSupport(q){
   const wrap = el("languageSupport");
@@ -728,8 +776,28 @@ function renderDariSupport(q){
   if(!app || !app.dariMode) return;
   const support = getDariSupport(q);
   if(!support) return;
+  const stage = supportStage(q);
+  if(stage===0){
+    const toggleWrap = ce("div","language-support-toggle");
+    const btn = ce("button","btn");
+    btn.type = "button";
+    btn.textContent = support.kind==="word" ? "Dari help" : "Dari reading help";
+    btn.addEventListener("click",()=>setSupportStage(q,1));
+    toggleWrap.appendChild(btn);
+    wrap.appendChild(toggleWrap);
+    return;
+  }
   const panel = ce("div","language-support");
   panel.appendChild(txt("h3",null,support.title));
+  if(support.kind==="paragraph"){
+    const primer = ce("div","dari-line");
+    primer.appendChild(txt("span","support-label","Before"));
+    primer.appendChild(document.createTextNode(support.routine.primer + " "));
+    const dariPrimer = ce("span","dari-text");
+    dariPrimer.textContent = support.routine.primerDari;
+    primer.appendChild(dariPrimer);
+    panel.appendChild(primer);
+  }
   const termList = ce("div","term-list");
   support.terms.forEach(term=>{
     const line = ce("div","dari-line");
@@ -743,7 +811,39 @@ function renderDariSupport(q){
     termList.appendChild(line);
   });
   panel.appendChild(termList);
-  panel.appendChild(txt("div","dari-line context-line",support.context));
+  if(support.kind==="word"){
+    const actions = ce("div","support-actions");
+    const listen = ce("button","btn");
+    listen.type = "button";
+    listen.textContent = "Listen";
+    listen.addEventListener("click",()=>speakEnglish(support.term));
+    actions.appendChild(listen);
+    if(stage<2){
+      const more = ce("button","btn");
+      more.type = "button";
+      more.textContent = "More help";
+      more.addEventListener("click",()=>setSupportStage(q,2));
+      actions.appendChild(more);
+    }
+    panel.appendChild(actions);
+    if(stage>=2){
+      const deep = ce("div","support-section");
+      deep.appendChild(txt("div","dari-line","Example: " + wordExample(support.term, support.simpleEnglish)));
+      deep.appendChild(txt("div","dari-line","Phrase frame: " + wordPhraseFrame(support.term)));
+      const pos = txt("div","dari-line","Part of speech: " + inferPartOfSpeech(q));
+      const badge = txt("span","quiet-badge","review");
+      pos.appendChild(badge);
+      deep.appendChild(pos);
+      deep.appendChild(txt("div","dari-line context-line","Try the answer in English after reading this support."));
+      panel.appendChild(deep);
+    }
+  } else {
+    const guide = ce("div","support-section");
+    guide.appendChild(txt("div","dari-line","During reading: " + support.routine.evidence));
+    guide.appendChild(txt("div","dari-line","After reading: " + support.routine.summary));
+    guide.appendChild(txt("div","dari-line context-line",support.context));
+    panel.appendChild(guide);
+  }
   wrap.appendChild(panel);
 }
 
@@ -1130,7 +1230,7 @@ function buildSession(){
       completed:false
     };
   });
-  return {mode, timerMode:tmr, dariMode, sectionPointer:0, sections};
+  return {mode, timerMode:tmr, dariMode, dariHelp:{}, sectionPointer:0, sections};
 }
 
 function sec(){ return app.sections[app.sectionPointer]; }
