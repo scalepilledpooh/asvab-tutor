@@ -80,6 +80,8 @@
   .status-box { font-size: 14px; font-family: monospace; color: #374151; }
   .status-box.warn-time { color: var(--warn); font-weight: 700; }
   .status-box.danger-time { color: var(--bad); font-weight: 700; }
+  .pace-line { margin-top: 4px; }
+  .pace-over { color: var(--warn); font-weight: 700; }
   .qmap { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 8px; }
   .qchip { aspect-ratio: 1; border: 1px solid #9ca3af; background: #fff; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 700; color: #374151; padding: 0; }
   .qchip.answered { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
@@ -259,6 +261,7 @@
     <div class="exam-side">
       <div class="status-box" id="statusBox">
         <div>Time: <span id="statusTime">--:--</span></div>
+        <div class="pace-line">Pace: <span id="questionPace">--:-- / --:--</span></div>
         <div>Question <span id="statusCount">1 / 12</span></div>
         <div style="margin-top:6px"><span class="pill" id="modeBadge">Mode</span><span class="pill" id="diffBadge">Difficulty</span></div>
       </div>
@@ -1127,6 +1130,10 @@ function fmtTime(s){
   const m = Math.floor(s / 60), ss = s % 60;
   return m + ":" + (ss < 10 ? "0" : "") + ss;
 }
+function sectionPaceSeconds(def, questionCount, mult){
+  if (mult == null || !questionCount) return null;
+  return Math.round(def.minutes * 60 * mult / questionCount);
+}
 function showScreen(name){
   ["setupScreen","transitionScreen","examScreen","sectionReviewScreen","resultsScreen"]
     .forEach(s => el(s).classList.toggle("active", s === name + "Screen"));
@@ -1194,6 +1201,9 @@ function buildSession(){
     flagged:Array(SECTION_DEFS.Q1.count).fill(false),
     currentIndex:0,
     secondsRemaining: mult == null ? null : Math.round(SECTION_DEFS.Q1.minutes * 60 * mult),
+    questionPaceSeconds: sectionPaceSeconds(SECTION_DEFS.Q1, SECTION_DEFS.Q1.count, mult),
+    questionTimerIndex:0,
+    questionStartedAt:null,
     completed:false,
     score:0
   };
@@ -1220,6 +1230,9 @@ function buildSection2(){
     flagged:Array(SECTION_DEFS.Q2.count).fill(false),
     currentIndex:0,
     secondsRemaining: app.mult == null ? null : Math.round(SECTION_DEFS.Q2.minutes * 60 * app.mult),
+    questionPaceSeconds: sectionPaceSeconds(SECTION_DEFS.Q2, SECTION_DEFS.Q2.count, app.mult),
+    questionTimerIndex:0,
+    questionStartedAt:null,
     completed:false,
     score:0
   };
@@ -1293,6 +1306,17 @@ function startTimer(){
 }
 function stopTimer(){ if (timerHandle) { clearInterval(timerHandle); timerHandle = null; } }
 function autoAdvanceSection(){ finishSection(); }
+function ensureQuestionTimer(s){
+  if (s.questionPaceSeconds == null) return;
+  if (s.questionStartedAt == null || s.questionTimerIndex !== s.currentIndex) {
+    s.questionTimerIndex = s.currentIndex;
+    s.questionStartedAt = Date.now();
+  }
+}
+function questionElapsedSeconds(s){
+  if (s.questionPaceSeconds == null || s.questionStartedAt == null) return null;
+  return Math.max(0, Math.floor((Date.now() - s.questionStartedAt) / 1000));
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // RENDER EXAM
@@ -1301,6 +1325,7 @@ function renderExam(){
   const s = sec();
   const q = curQ();
   const def = SECTION_DEFS[s.code];
+  ensureQuestionTimer(s);
 
   el("modeBadge").textContent = app.mode === "realistic" ? "Realistic" : "Tutor";
   el("diffBadge").textContent = s.difficulty.charAt(0).toUpperCase() + s.difficulty.slice(1);
@@ -1434,6 +1459,10 @@ function updateStatus(){
   const box = el("statusBox");
   box.className = "status-box" + (isDanger ? " danger-time" : isWarn ? " warn-time" : "");
   el("statusTime").textContent = fmtTime(secs);
+  const pace = questionElapsedSeconds(s);
+  const paceEl = el("questionPace");
+  paceEl.textContent = pace == null ? "Timer off" : fmtTime(pace) + " / " + fmtTime(s.questionPaceSeconds);
+  paceEl.className = pace != null && pace > s.questionPaceSeconds ? "pace-over" : "";
   el("statusCount").textContent = (s.currentIndex + 1) + " / " + s.questions.length;
 }
 
@@ -1707,6 +1736,13 @@ function calcInput(act){
     calc.display = "0"; calc.prev = null; calc.op = null; calc.justEvaluated = false;
   } else if (act === "CE") {
     calc.display = "0"; calc.justEvaluated = false;
+  } else if (act === "BACK") {
+    if (calc.justEvaluated || calc.display.length <= 1 || calc.display === "Error") {
+      calc.display = "0";
+      calc.justEvaluated = false;
+    } else {
+      calc.display = calc.display.slice(0, -1);
+    }
   } else if (act === "±") {
     if (calc.display !== "0") calc.display = calc.display.startsWith("-") ? calc.display.slice(1) : "-" + calc.display;
   } else if (act === "√") {
@@ -1735,6 +1771,35 @@ function calcEval(){
   }
   calc.display = isNaN(r) ? "Error" : String(r);
   calc.prev = null; calc.op = null; calc.justEvaluated = true;
+}
+function calcKeyboardAction(e){
+  if (!el("calculator").classList.contains("active")) return false;
+  const keyMap = {
+    "+":"+",
+    "-":"−",
+    "*":"×",
+    "x":"×",
+    "/":"÷",
+    "Enter":"=",
+    "=":"=",
+    ".":".",
+    "Backspace":"BACK",
+    "Delete":"CE",
+    "c":"C",
+    "C":"C",
+  };
+  if (/^[0-9]$/.test(e.key)) {
+    calcInput(e.key);
+    return true;
+  }
+  if (e.key === "Escape") {
+    el("calculator").classList.remove("active");
+    return true;
+  }
+  const act = keyMap[e.key];
+  if (!act) return false;
+  calcInput(act);
+  return true;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1775,6 +1840,10 @@ document.querySelectorAll("#calculator .calc-btn").forEach(b => {
 document.addEventListener("keydown", e => {
   if (!app || !el("examScreen").classList.contains("active")) return;
   if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+  if (calcKeyboardAction(e)) {
+    e.preventDefault();
+    return;
+  }
   const k = e.key.toLowerCase();
   if (k === "n") nextAction();
   if (k === "p") prevAction();

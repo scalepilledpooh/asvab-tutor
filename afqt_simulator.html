@@ -56,6 +56,8 @@
   .status-box { font-size: 14px; color: var(--muted); text-align: right; min-width: 120px; }
   .status-box.warn-time { color: var(--warn); font-weight: 700; }
   .status-box.danger-time { color: var(--bad); font-weight: 700; }
+  .pace-line { margin-top: 4px; }
+  .pace-over { color: var(--warn); font-weight: 700; }
   .mini { font-size: 12px; color: var(--muted); }
   .review-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 6px; }
   .qchip { border: 1px solid var(--line); background: white; border-radius: 8px; padding: 8px 0; text-align: center; font-weight: 700; font-size: 13px; cursor: pointer; font-family: inherit; }
@@ -239,6 +241,7 @@
         </div>
         <div class="status-box" id="statusBox">
           <div id="statusTime"></div>
+          <div class="pace-line">Pace: <span id="questionPace">--:-- / --:--</span></div>
           <div id="statusCount"></div>
         </div>
       </div>
@@ -869,6 +872,10 @@ function fmtTime(secs){
   if(secs==null) return "Timer off";
   return Math.floor(secs/60)+":"+String(secs%60).padStart(2,"0");
 }
+function sectionPaceSeconds(info, questionCount, mult){
+  if(mult==null||!questionCount) return null;
+  return Math.round(info.minutes*60*mult/questionCount);
+}
 
 function showScreen(name){
   ["setupScreen","transitionScreen","examScreen","sectionReviewScreen","resultsScreen"]
@@ -908,6 +915,9 @@ function buildSession(){
       submittedIndices:Array(qs.length).fill(false),
       currentIndex:0,
       secondsRemaining:mult==null?null:Math.round(info.minutes*60*mult),
+      questionPaceSeconds:sectionPaceSeconds(info, qs.length, mult),
+      questionTimerIndex:0,
+      questionStartedAt:null,
       completed:false
     };
   });
@@ -936,12 +946,24 @@ function autoAdvance(){
   if(app.mode==="realistic"&&s.answers[s.currentIndex]!=null) s.submittedIndices[s.currentIndex]=true;
   finishSection();
 }
+function ensureQuestionTimer(s){
+  if(s.questionPaceSeconds==null) return;
+  if(s.questionStartedAt==null||s.questionTimerIndex!==s.currentIndex){
+    s.questionTimerIndex=s.currentIndex;
+    s.questionStartedAt=Date.now();
+  }
+}
+function questionElapsedSeconds(s){
+  if(s.questionPaceSeconds==null||s.questionStartedAt==null) return null;
+  return Math.max(0, Math.floor((Date.now()-s.questionStartedAt)/1000));
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // RENDER EXAM
 // ─────────────────────────────────────────────────────────────────────────────
 function renderExam(){
   const s=sec(), q=curQ(), info=SECTION_INFO[s.code];
+  ensureQuestionTimer(s);
 
   el("modeBadge").textContent = app.mode==="realistic"?"CAT-like":"Tutor mode";
   el("timerBadge").textContent = app.timerMode==="off"?"Timer off":
@@ -986,6 +1008,10 @@ function updateStatus(){
   const box=el("statusBox");
   box.className="status-box"+(isDanger?" danger-time":isWarn?" warn-time":"");
   el("statusTime").textContent = fmtTime(secs);
+  const pace=questionElapsedSeconds(s);
+  const paceEl=el("questionPace");
+  paceEl.textContent = pace==null?"Timer off":fmtTime(pace)+" / "+fmtTime(s.questionPaceSeconds);
+  paceEl.className = pace!=null&&pace>s.questionPaceSeconds?"pace-over":"";
   el("statusCount").textContent = (sec().currentIndex+1)+" / "+sec().questions.length;
 }
 
