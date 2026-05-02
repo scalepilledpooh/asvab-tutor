@@ -46,6 +46,14 @@
   .question-header { color: #1e3a8a; font-size: 28px; font-weight: 700; text-align: center; margin: 8px 0 4px; }
   .question-meta { text-align: center; font-size: 14px; color: var(--muted); margin-bottom: 12px; }
   .question-stem { font-size: 22px; line-height: 1.55; white-space: pre-wrap; margin: 16px auto 18px; max-width: 760px; }
+  .language-support { max-width: 760px; margin: -4px auto 18px; border: 1px solid #bfdbfe; background: #eff6ff; border-radius: 10px; padding: 12px 14px; }
+  .language-support h3 { margin: 0 0 8px; font-size: 15px; color: #1e3a8a; }
+  .language-support .dari-line { margin: 6px 0; font-size: 15px; line-height: 1.45; }
+  .language-support .dari-text { direction: rtl; unicode-bidi: plaintext; font-family: Arial, Helvetica, sans-serif; }
+  .language-support .context-line { color: #374151; }
+  .language-support .term-list { display: grid; gap: 6px; margin-top: 8px; }
+  .language-toggle { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: #f8fafc; }
+  .language-toggle input { margin-top: 3px; }
   .choices { max-width: 760px; margin: 0 auto; display: grid; gap: 12px; }
   .choice { display: grid; grid-template-columns: 56px 1fr; align-items: stretch; border: 1px solid #9ca3af; border-radius: 8px; overflow: hidden; background: white; cursor: pointer; text-align: left; font-family: inherit; }
   .choice:hover { border-color: var(--accent); }
@@ -98,6 +106,8 @@
     .question-header { font-size: 17px; margin: 4px 0 2px; }
     .question-meta { font-size: 12px; margin-bottom: 8px; }
     .question-stem { font-size: 16px; line-height: 1.5; margin: 10px 0 14px; }
+    .language-support { margin: -2px 0 14px; padding: 10px; }
+    .language-support .dari-line { font-size: 14px; }
     /* Choices — large tap targets */
     .choices { gap: 10px; }
     .choice { grid-template-columns: 46px 1fr; min-height: 56px; border-radius: 10px; }
@@ -174,6 +184,13 @@
             <option value="off">Timer off</option>
           </select>
         </div>
+        <label class="language-toggle" for="dariMode">
+          <input type="checkbox" id="dariMode" />
+          <span>
+            <strong>Dari support for WK / PC</strong><br>
+            <span class="mini">Shows Dari vocabulary help and plain-English context for Word Knowledge and Paragraph Comprehension.</span>
+          </span>
+        </label>
         <div class="note">
           <strong>Standard section times (official CAT-ASVAB)</strong><br>
           AR: 55 min &nbsp;-&nbsp; WK: 9 min &nbsp;-&nbsp; PC: 27 min &nbsp;-&nbsp; MK: 31 min
@@ -232,6 +249,7 @@
       <div class="question-header" id="sectionTitle"></div>
       <div class="question-meta" id="sectionMeta"></div>
       <div class="question-stem" id="questionStem"></div>
+      <div id="languageSupport"></div>
       <div class="choices" id="choices"></div>
       <div class="bottom-bar">
         <div class="row">
@@ -568,6 +586,109 @@ const TOPIC_LABELS = {
   number_theory:"Number Theory", statistics:"Statistics",
   order_of_operations:"Order of Operations",
 };
+const DARI_WORDS = {
+  abundant:["فراوان / بسیار زیاد","More than enough; like food, supplies, or opportunities being available in a large amount."],
+  reluctant:["بی میل / ناخواسته","Someone does not really want to do it, or pauses because they are unsure."],
+  conclude:["نتیجه گرفتن / ختم کردن","To finish something, or decide after thinking about the evidence."],
+  vital:["ضروری / بسیار مهم","Something that is needed and very important, like water for life."],
+  brief:["کوتاه / مختصر","Short in time or length."],
+  expand:["گسترش دادن / بزرگ ساختن","To make bigger or increase."],
+  rigid:["سخت / انعطاف ناپذیر","Stiff; does not bend or change easily."],
+  observe:["مشاهده کردن / دیدن با دقت","To notice or watch carefully."],
+  scarce:["کم یاب / نادر","Not enough; hard to find."],
+  accurate:["دقیق / درست","Correct and exact."],
+  ancient:["قدیمی / باستانی","Very old, often from long ago in history."],
+  permit:["اجازه دادن","To allow someone to do something."],
+  hesitate:["تردید کردن / مکث کردن","To pause because you are unsure."],
+  maintain:["نگه داشتن / حفظ کردن","To keep something in good condition or continue it."],
+  hostile:["دشمنانه / مخالف","Unfriendly or aggressive."],
+  diligent:["کوشا / سخت کوش","Works carefully and steadily."],
+  transparent:["شفاف / روشن","Clear; can be seen through or easily understood."],
+  persistent:["پیوسته / دست بردار نبودن","Continues and does not give up."],
+  adequate:["کافی / بسنده","Enough for the need, but not necessarily excellent."],
+  conceal:["پنهان کردن","To hide something."],
+  agile:["چابک / سریع حرکت کننده","Able to move quickly and easily."],
+  trivial:["کم اهمیت / ناچیز","Not very important."],
+  allocate:["اختصاص دادن / تقسیم کردن","To assign resources for a purpose."],
+  futile:["بی فایده / بی نتیجه","Will not succeed or produce a useful result."],
+  serene:["آرام / با صفا","Peaceful and calm."],
+  legitimate:["قانونی / معتبر","Lawful, real, or valid."],
+  ample:["کافی و زیاد / فراوان","More than enough."],
+  deteriorate:["خراب تر شدن / بدتر شدن","To decline or get worse over time."],
+  prudent:["محتاط و عاقل","Shows wise judgment and avoids unnecessary risk."],
+  concise:["مختصر و روشن","Short but clear."],
+  abhorrent:["نفرت انگیز / بسیار بد","Very unpleasant or disgusting."],
+  belie:["نادرست نشان دادن / خلاف چیزی را نشان دادن","To give a false impression or show that something is not true."],
+  detritus:["خرده ریز / پسمانده","Loose pieces or waste material left behind."],
+  redoubt:["پناهگاه / سنگر","A protected place or stronghold."],
+  ostracized:["طرد شده / از جمع رانده شده","Excluded from a group."],
+  wayworn:["خسته از سفر","Very tired from travel."],
+  potable:["قابل نوشیدن","Safe to drink."],
+  decamp:["ترک کردن / کوچ کردن","To leave a place, often suddenly."],
+  glorious:["باشکوه / پر افتخار","Very beautiful, impressive, or honorable."],
+  duplicity:["دورویی / فریبکاری","Dishonesty by pretending one thing and doing another."],
+  mallet:["چکش چوبی / پتک کوچک","A hammer-like tool, often with a large head."],
+  hosiery:["جوراب و پوشاک پا","Socks, stockings, or similar legwear."],
+  hale:["تندرست / سالم","Healthy and strong, especially for an older person."],
+  magnitude:["اندازه / بزرگی","Size, amount, or importance."],
+  vapid:["بی مزه / بی روح","Dull, boring, or without life."],
+  extraneous:["غیر ضروری / بی ربط","Not needed or not directly related."],
+  solicitous:["دلواپس / مراقب","Shows care and concern."],
+  limpid:["شفاف / زلال","Clear, especially water or eyes."],
+  amity:["دوستی / صلح","Friendly relationship."],
+  cohort:["همراه / گروه همراه","A companion, supporter, or group."],
+  speechless:["بی زبان / از حرف مانده","Unable to speak because of surprise or emotion."],
+  indigenous:["بومی / محلی","Native to a place."],
+  illusive:["گمراه کننده / فریبنده","Not real or hard to catch; gives a false idea."],
+  gravity:["جدیت / سنگینی","Seriousness; can also mean the force that pulls things down."],
+  fondle:["نوازش کردن / لمس کردن با محبت","To touch gently with affection."],
+  fete:["جشن گرفتن / تجلیل کردن","To honor someone with a celebration."],
+  encore:["اجرای دوباره","An extra performance after the main performance."],
+  diverse:["گوناگون / متنوع","Different kinds or varied."],
+  detest:["نفرت داشتن","To hate strongly."],
+  acerbic:["تند و تلخ در گفتار","Sharp, harsh, or bitter in tone."],
+  inexorable:["توقف ناپذیر / انعطاف ناپذیر","Cannot be stopped, changed, or persuaded."],
+  hector:["اذیت کردن با امر و نهی / زور گفتن","To bully or bother someone by talking harshly."],
+  gauche:["بی نزاکت / خام","Awkward or lacking social grace."],
+  confident:["مطمئن / با اعتماد به نفس","Sure of oneself or assured."]
+};
+const DARI_PASSAGE_SUPPORT = {
+  PC1:{terms:[["missed the bus","بس را از دست داد"],["out of breath","نفس نفس زنان"],["before the bell rang","پیش از زنگ صنف"]],context:"Focus on the cause: Maya used the bicycle because she missed the early bus."},
+  PC2:{terms:[["closed","بسته"],["weekdays","روزهای هفته"],["quiet study rooms","اتاق های آرام مطالعه"]],context:"The question asks for a time. The passage says the library is closed on Sundays."},
+  PC3:{terms:[["seeds","تخم"],["watered","آب داد"],["weeds","علف های هرزه"],["full of fruit","پر از میوه"]],context:"Look for the action that helped growth: watering every morning."},
+  PC4:{terms:[["pottery","ظرف های سفالی"],["exhibit","نمایشگاه"],["made by hand","با دست ساخته شده"],["unique","منحصر به فرد"]],context:"Unique means each one is different. The reason is that the bowls were made by hand."},
+  PC5:{terms:[["crew","گروه کار"],["tied down","محکم بستند"],["waterproof tarps","پوش های ضد آب"],["remained dry","خشک ماند"]],context:"The result came after preparation: the supplies stayed dry."},
+  PC6:{terms:[["trail","راه پیاده روی"],["steep","سربالا / شیب دار"],["catch their breath","نفس تازه کردن"]],context:"The description is direct: short but steep."},
+  PC7:{terms:[["compared","مقایسه کرد"],["lightest model","سبک ترین مدل"],["carries it daily","هر روز آن را حمل می کند"]],context:"Rina chose the lightest laptop because daily carrying matters."},
+  PC8:{terms:[["lightning","برق آسمان"],["indoors","داخل"],["unsafe","ناامن"],["storm passed","طوفان گذشت"]],context:"Lightning made the field unsafe, so the team went indoors."},
+  PC9:{terms:[["repair","ترمیم / تعمیر"],["habit","عادت"],["replaced parts","پرزه های تبدیل شده"],["job","کار"]],context:"Mr. Lee writes notes so he can remember completed repairs and replaced parts."},
+  PC10:{terms:[["whole-grain bread","نان سبوس دار"],["customer requests","درخواست های مشتری"],["demand","تقاضا"],["baking shifts","نوبت های پخت"]],context:"High customer demand caused the bakery to add shifts."},
+  PC11:{terms:[["launched","آغاز کرد"],["recycling program","برنامه بازیافت"],["blue bin","سطل آبی"],["aims to increase","هدف دارد افزایش دهد"]],context:"The purpose is stated directly: increase recycling rates."},
+  PC12:{terms:[["opening","وقت باز شدن"],["walk-in cooler","یخچال بزرگ رستوران"],["reviews the menu","مینو را بررسی می کند"],["prepares carefully","با دقت آماده می شود"]],context:"Arriving early and checking details shows careful preparation."},
+  PC13:{terms:[["forklift","لیفتراک"],["operators","رانندگان / کارکنان"],["inspect","بررسی کردن"],["remove from service","از استفاده بیرون کردن"]],context:"If a problem is found, the operator must stop using the machine immediately."},
+  PC14:{terms:[["valley","دره"],["overflowed its banks","از کرانه هایش بالا زد"],["flooded","سیلابی کرد"],["debris","آوار / کثافات"]],context:"Heavy rain caused the river to overflow, which flooded roads."},
+  PC15:{terms:[["volunteers","داوطلبانه کار می کند"],["food bank","مرکز توزیع غذا"],["sorts donations","کمک ها را دسته بندی می کند"],["three years","سه سال"]],context:"The time detail is direct: she has volunteered for three years."},
+  PC16:{terms:[["vendors","فروشندگان"],["sell out","تمام می فروشند"],["best selection","بهترین انتخاب"],["late arrivals","کسانی که دیر می رسند"]],context:"Arriving early gives shoppers better selection before produce sells out."},
+  PC17:{terms:[["reviews notes","یادداشت ها را مرور می کند"],["rewrites","دوباره می نویسد"],["quiz for himself","امتحان کوتاه برای خودش"],["improved","بهتر شده"]],context:"The habit that helped was reviewing and rewriting notes daily."},
+  PC18:{terms:[["top scorer","بهترین گل زن"],["injury","زخمی شدن"],["struggled","مشکل داشتند"],["opportunities","فرصت ها"]],context:"The poor performance is linked to losing the top scorer."},
+  PC19:{terms:[["diagnose","تشخیص دادن"],["instrument data","معلومات دستگاه"],["patterns","الگوها"],["trained ear","گوش آموزش دیده"]],context:"The main idea is that experience and listening help mechanics find problems early."},
+  PC20:{terms:[["first frost","اولین یخبندان"],["straw mulch","پوشال کاه"],["protect the roots","ریشه ها را محافظت کردن"],["perennial plants","گیاهان چندساله"]],context:"Elena added mulch to protect plant roots during winter."},
+  PCD01:{terms:[["GI Bill","قانون کمک به نظامیان سابق"],["veterans","سربازان سابق"],["home loan guarantees","ضمانت قرضه خانه"],["training programs","برنامه های آموزشی"]],context:"The passage says many veterans got education/training and VA-backed home loans."},
+  PCD02:{terms:[["IRA","حساب تقاعد شخصی"],["tax-deductible","قابل کم شدن از مالیه"],["spouse","همسر"],["file jointly","مشترک مالیه دادن"]],context:"Each spouse can put in $3,000, so together they can save $6,000."},
+  PCD03:{terms:[["appointments","انتصاب ها"],["Senate confirmation","تایید سنا"],["federal government","حکومت فدرال"],["NOT true","درست نیست"]],context:"Watch the word 'some.' Not all appointments need Senate confirmation."},
+  PCD04:{terms:[["advertising","اعلان / تبلیغات"],["consumption","مصرف"],["partial bans","ممنوعیت های جزئی"],["substitution","جایگزینی"]],context:"The author argues advertising bans are unlikely to work."},
+  PCD05:{terms:[["derived","گرفته شده"],["tribe","قوم / قبیله"],["waterway","راه آبی / دریا"],["origins","ریشه ها"]],context:"The state name came from a river, and that river was named after the tribe."},
+  PCD06:{terms:[["judicial districts","حوزه های قضایی"],["bankruptcy","ورشکستگی"],["state court","محکمه ایالتی"],["almost all","تقریبا همه"]],context:"The word 'almost' matters: bankruptcy is not always filed in bankruptcy court."},
+  PCD07:{terms:[["hate crimes","جرایم نفرتی"],["property offense","جرم علیه ملکیت"],["motivated by religion","با انگیزه دینی"],["vandalism","خرابکاری"]],context:"Most property-offense hate crimes mentioned were motivated by religion."},
+  PCD08:{terms:[["violent crime","جرم خشونت آمیز"],["intimidation","تهدید"],["simple assault","حمله ساده"],["classified as","دسته بندی می شود به"]],context:"Sixty percent means the majority were violent crimes."},
+  PCD09:{terms:[["boundaries","سرحدات"],["smuggling","قاچاق"],["terrain","زمین / ساحه طبیعی"],["sign cutting","ردیابی نشانه ها در زمین"]],context:"Sign cutting is the activity that detects changes in terrain."},
+  PCD10:{terms:[["divided","تقسیم شد"],["partitioned","بخش کرد"],["principality","قلمرو شاهزاده"],["sons","پسران"]],context:"Wales was divided because the king wanted his sons to rule parts of it."},
+  PCD11:{terms:[["Huns","قوم هون"],["territory","قلمرو"],["crowned","تاج گذاری شد"],["ambitious","بلندپرواز"]],context:"The whole paragraph is mostly about Attila the Hun, so that is the best title."},
+  PCD12:{terms:[["peace terms","شرایط صلح"],["plot to murder","نقشه قتل"],["enraged","بسیار خشمگین"],["resumed war","جنگ را دوباره آغاز کرد"]],context:"Attila restarted war because he learned the emperor planned to assassinate him."},
+  PCD13:{terms:[["competence","شایستگی / توانایی کاری"],["professional integrity","صداقت مسلکی"],["moral","اخلاقی"],["proficiency","مهارت / شایستگی"]],context:"The central theme is competence, so 'proficiency' is the closest one-word summary."},
+  PCD14:{terms:[["national security","امنیت ملی"],["public funds","پول عامه"],["moral obligation","مسوولیت اخلاقی"],["all of the above","همه موارد بالا"]],context:"The passage supports every listed reason, so choose all of the above."},
+  PCD15:{terms:[["spot failures","ناکامی ها را دیدن"],["interfere","مانع شدن"],["personal loyalties","وفاداری های شخصی"],["win out","برنده شدن / مقدم بودن"]],context:"The author says professional integrity should come before friendship when stakes are high."}
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DOM HELPERS  (safe — no innerHTML with variable data on the exam screen)
@@ -575,6 +696,56 @@ const TOPIC_LABELS = {
 function el(id){ return document.getElementById(id); }
 function ce(tag, cls){ const n = document.createElement(tag); if(cls) n.className = cls; return n; }
 function txt(tag, cls, text){ const n = ce(tag, cls); n.textContent = text; return n; }
+function extractWordKnowledgeTerm(q){
+  const quoted = q.stem.match(/'([^']+)'/);
+  if(quoted) return quoted[1].toLowerCase().replace(/[^a-z-]+$/,"");
+  const upper = q.stem.match(/\b([A-Z]{4,})\b(?=\s+most nearly means)/);
+  if(upper) return upper[1].toLowerCase();
+  const leading = q.stem.match(/^([A-Za-z]+)\s+most nearly means/i);
+  return leading ? leading[1].toLowerCase() : "";
+}
+function getDariSupport(q){
+  if(q.section==="WK"){
+    const term = extractWordKnowledgeTerm(q);
+    const entry = DARI_WORDS[term];
+    if(!entry) return null;
+    return {
+      title:"Dari vocabulary help",
+      terms:[[term, entry[0], entry[1]]],
+      context:"Use the Dari meaning to understand the English word, then pick the closest English answer."
+    };
+  }
+  if(q.section==="PC"){
+    const entry = DARI_PASSAGE_SUPPORT[q.id];
+    if(!entry) return null;
+    return {title:"Dari reading help", terms:entry.terms, context:entry.context};
+  }
+  return null;
+}
+function renderDariSupport(q){
+  const wrap = el("languageSupport");
+  wrap.textContent = "";
+  if(!app || !app.dariMode) return;
+  const support = getDariSupport(q);
+  if(!support) return;
+  const panel = ce("div","language-support");
+  panel.appendChild(txt("h3",null,support.title));
+  const termList = ce("div","term-list");
+  support.terms.forEach(term=>{
+    const line = ce("div","dari-line");
+    const en = ce("strong"); en.textContent = term[0] + ": ";
+    const dari = ce("span","dari-text"); dari.textContent = term[1];
+    line.appendChild(en);
+    line.appendChild(dari);
+    if(term[2]){
+      line.appendChild(document.createTextNode(" - " + term[2]));
+    }
+    termList.appendChild(line);
+  });
+  panel.appendChild(termList);
+  panel.appendChild(txt("div","dari-line context-line",support.context));
+  wrap.appendChild(panel);
+}
 
 // Safe DOM-based results building (all variable content via textContent)
 function makeResultsTable(sections){
@@ -940,6 +1111,7 @@ function saveNotes(){
 // ─────────────────────────────────────────────────────────────────────────────
 function buildSession(){
   const type=el("sessionType").value, mode=el("mode").value, tmr=el("timerMode").value;
+  const dariMode=el("dariMode").checked;
   const secCodes=type==="FULL"?FULL_ORDER:[type];
   const mult=getMultiplier(tmr);
   const sections=secCodes.map(code=>{
@@ -958,7 +1130,7 @@ function buildSession(){
       completed:false
     };
   });
-  return {mode, timerMode:tmr, sectionPointer:0, sections};
+  return {mode, timerMode:tmr, dariMode, sectionPointer:0, sections};
 }
 
 function sec(){ return app.sections[app.sectionPointer]; }
@@ -1009,6 +1181,7 @@ function renderExam(){
   el("sectionMeta").textContent = "Question "+(s.currentIndex+1)+" of "+s.questions.length;
   el("progressFill").style.width = ((s.currentIndex+1)/s.questions.length*100)+"%";
   el("questionStem").textContent = q.stem;
+  renderDariSupport(q);
   el("qmapNote").textContent = app.mode==="tutor"?"Click any number to jump.":"Read-only in CAT-like mode.";
 
   // choices (all via textContent - no innerHTML)
@@ -1213,6 +1386,7 @@ function logSession(totalCorrect, totalItems){
     studentName,
     timestamp: new Date().toISOString(),
     mode: app.mode,
+    dariMode: app.dariMode,
     sessionType: el("sessionType").value,
     totalCorrect,
     totalItems,
@@ -1269,6 +1443,7 @@ function startSession(){
 el("startBtn").addEventListener("click",startSession);
 el("demoTutorBtn").addEventListener("click",()=>{
   el("sessionType").value="FULL"; el("mode").value="tutor"; el("timerMode").value="off";
+  el("dariMode").checked=true;
   startSession();
 });
 el("nextBtn").addEventListener("click",nextAction);
