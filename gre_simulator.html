@@ -1111,12 +1111,23 @@ const SECTION_DEFS = {
   Q1: { name:"Quantitative Reasoning — Section 1", count:12, minutes:21 },
   Q2: { name:"Quantitative Reasoning — Section 2", count:15, minutes:26 }
 };
+const TOPIC_LABELS = {
+  arithmetic:"Arithmetic",
+  algebra:"Algebra",
+  geometry:"Geometry",
+  data:"Data Analysis",
+  "data-analysis":"Data Analysis",
+  probability:"Probability",
+  counting:"Counting & Combinatorics",
+  other:"Other",
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 function el(id){ return document.getElementById(id); }
 function ce(tag, cls){ const e = document.createElement(tag); if (cls) e.className = cls; return e; }
+function topicLabel(topic){ return TOPIC_LABELS[topic] || topic || "Other"; }
 function shuffle(arr){
   const a = arr.slice();
   for (let i = a.length - 1; i > 0; i--) {
@@ -1316,6 +1327,53 @@ function ensureQuestionTimer(s){
 function questionElapsedSeconds(s){
   if (s.questionPaceSeconds == null || s.questionStartedAt == null) return null;
   return Math.max(0, Math.floor((Date.now() - s.questionStartedAt) / 1000));
+}
+function buildTopicStats(sections){
+  const topicStats = {};
+  sections.forEach(s => {
+    s.questions.forEach((q, i) => {
+      const t = q.topic || "other";
+      if (!topicStats[t]) topicStats[t] = { correct:0, total:0 };
+      topicStats[t].total++;
+      if (isCorrect(q, s.answers[i])) topicStats[t].correct++;
+    });
+  });
+  return topicStats;
+}
+function sortedTopicStats(topicStats, missedOnly){
+  return Object.entries(topicStats)
+    .filter(([, v]) => !missedOnly || v.correct < v.total)
+    .sort((a, b) => (a[1].correct / a[1].total) - (b[1].correct / b[1].total) || b[1].total - a[1].total);
+}
+function appendTopicBreakdown(parent, topicStats){
+  const rows = sortedTopicStats(topicStats, true);
+  const sec = ce("div", "res-section");
+  const h = ce("h3");
+  h.textContent = "Weak-area breakdown";
+  sec.appendChild(h);
+  if (!rows.length) {
+    const ok = ce("div");
+    ok.textContent = "No missed problem types in this session.";
+    sec.appendChild(ok);
+  } else {
+    const table = ce("table", "results-table");
+    const head = table.insertRow();
+    ["Problem type", "Correct", "Total", "Accuracy"].forEach(label => {
+      const th = document.createElement("th");
+      th.textContent = label;
+      head.appendChild(th);
+    });
+    rows.forEach(([topic, v]) => {
+      const row = table.insertRow();
+      const pct = Math.round(v.correct / v.total * 100);
+      row.insertCell().textContent = topicLabel(topic);
+      row.insertCell().textContent = v.correct;
+      row.insertCell().textContent = v.total;
+      row.insertCell().textContent = pct + "%";
+    });
+    sec.appendChild(table);
+  }
+  parent.appendChild(sec);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1600,6 +1658,7 @@ function renderResults(){
 
   const body = el("resultsBody");
   body.textContent = "";
+  appendTopicBreakdown(body, buildTopicStats(app.sections));
 
   app.sections.forEach(s => {
     const sec = ce("div", "res-section");
@@ -1613,7 +1672,7 @@ function renderResults(){
       const head = ce("div");
       head.style.fontWeight = "700";
       head.style.marginBottom = "4px";
-      head.textContent = (ok ? "✓ " : "✗ ") + "Q" + (i + 1) + " · " + q.qtype + " · " + q.topic;
+      head.textContent = (ok ? "✓ " : "✗ ") + "Q" + (i + 1) + " · " + q.qtype + " · " + topicLabel(q.topic);
       row.appendChild(head);
 
       const stem = ce("div");
@@ -1651,6 +1710,31 @@ function shareResults(){
   app.sections.forEach(s => {
     text += SECTION_DEFS[s.code].name + " (" + s.difficulty + "): " + s.score + " / " + s.questions.length + "\n";
   });
+  const topicRows = sortedTopicStats(buildTopicStats(app.sections), true);
+  if (topicRows.length) {
+    text += "\nWeak Areas by Problem Type\n";
+    topicRows.forEach(([topic, v]) => {
+      const pct = Math.round(v.correct / v.total * 100);
+      text += topicLabel(topic) + ": " + v.correct + "/" + v.total + " (" + pct + "%)\n";
+    });
+  }
+  const missedItems = [];
+  app.sections.forEach(s => {
+    s.questions.forEach((q, i) => {
+      if (!isCorrect(q, s.answers[i])) missedItems.push({ q, i, s });
+    });
+  });
+  if (missedItems.length) {
+    text += "\nMissed Questions\n";
+    missedItems.forEach(({ q, i, s }) => {
+      text += "──────────────\n";
+      text += SECTION_DEFS[s.code].name + " Q" + (i + 1) + " · " + topicLabel(q.topic) + " · " + q.qtype + "\n";
+      text += (q.qtype === "QC" ? ((q.stem ? q.stem + " " : "") + "[A: " + q.qtyA + " | B: " + q.qtyB + "]") : q.stem) + "\n";
+      text += "Your answer: " + studentText(q, s.answers[i]) + "\n";
+      text += "Correct: " + correctText(q) + "\n";
+      text += q.explanation + "\n";
+    });
+  }
   if (navigator.clipboard) {
     navigator.clipboard.writeText(text).then(
       () => alert("Summary copied to clipboard."),
@@ -1678,6 +1762,7 @@ function logSession(){
         id: q.id,
         section: s.code,
         topic: q.topic,
+        topicLabel: topicLabel(q.topic),
         qtype: q.qtype,
         difficulty: q.difficulty,
         stem: q.qtype === "QC"
@@ -1710,6 +1795,12 @@ function logSession(){
     estimatedRange: [est.low, est.high],
     totalCorrect,
     totalItems,
+    topicStats: sortedTopicStats(buildTopicStats(app.sections), false).map(([topic, v]) => ({
+      topic,
+      label: topicLabel(topic),
+      correct: v.correct,
+      total: v.total,
+    })),
     sections
   };
 

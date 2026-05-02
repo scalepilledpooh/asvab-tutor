@@ -630,6 +630,24 @@ function makeTopicTable(missedTopics){
   wrap.appendChild(t);
   return wrap;
 }
+function buildTopicStats(sections){
+  const topicStats={};
+  sections.forEach(s=>{
+    s.questions.forEach((q,i)=>{
+      const t=q.topic||"other";
+      if(!topicStats[t]) topicStats[t]={correct:0,total:0};
+      topicStats[t].total++;
+      if(s.answers[i]===q.answer) topicStats[t].correct++;
+    });
+  });
+  return topicStats;
+}
+function sortedTopicStats(topicStats, missedOnly){
+  return Object.entries(topicStats)
+    .filter(([,v])=>!missedOnly||v.correct<v.total)
+    .sort((a,b)=>(a[1].correct/a[1].total)-(b[1].correct/b[1].total)||b[1].total-a[1].total);
+}
+function topicLabel(topic){ return TOPIC_LABELS[topic]||topic; }
 
 function makeMissedItemsBlock(sections){
   const wrap = ce("div");
@@ -655,6 +673,11 @@ function makeMissedItemsBlock(sections){
         if(pi < stemParts.length-1) qLine.appendChild(document.createElement("br"));
       });
       note.appendChild(qLine);
+
+      const typeDiv = ce("div","subtle");
+      typeDiv.style.marginTop = "6px";
+      typeDiv.textContent = "Problem type: " + topicLabel(q.topic);
+      note.appendChild(typeDiv);
 
       const yourDiv = ce("div"); yourDiv.style.cssText="margin-top:8px;color:var(--bad)";
       const yb = ce("strong"); yb.textContent = "Your answer: ";
@@ -724,6 +747,11 @@ function makeFlaggedItemsBlock(sections){
     header.appendChild(qLabel); header.appendChild(badge);
     note.appendChild(header);
 
+    const typeDiv=ce("div","subtle");
+    typeDiv.style.marginBottom="6px";
+    typeDiv.textContent="Problem type: "+topicLabel(q.topic);
+    note.appendChild(typeDiv);
+
     // Stem
     const stemDiv=ce("div"); stemDiv.style.marginBottom="8px";
     const stemParts=q.stem.split("\n");
@@ -786,6 +814,15 @@ function buildShareText(){
   });
   text+="Overall: "+totalCorrect+"/"+totalItems+" ("+Math.round(totalCorrect/totalItems*100)+"%)\n";
 
+  const topicRows=sortedTopicStats(buildTopicStats(app.sections), true);
+  if(topicRows.length){
+    text+="\nWeak Areas by Problem Type\n";
+    topicRows.forEach(([topic,v])=>{
+      const pct=Math.round(v.correct/v.total*100);
+      text+=topicLabel(topic)+": "+v.correct+"/"+v.total+" ("+pct+"%)\n";
+    });
+  }
+
   // Flagged questions
   const flaggedItems=[];
   app.sections.forEach(s=>{
@@ -797,7 +834,7 @@ function buildShareText(){
     text+="\n⚑ Flagged Questions ("+flaggedItems.length+")\n";
     flaggedItems.forEach(({q,i,s,isCorrect,userAns})=>{
       text+="──────────────\n";
-      text+=SECTION_INFO[s.code].name+" Q"+(i+1)+" "+(isCorrect?"✓":"✗")+"\n";
+      text+=SECTION_INFO[s.code].name+" Q"+(i+1)+" · "+topicLabel(q.topic)+" "+(isCorrect?"✓":"✗")+"\n";
       text+=q.stem+"\n";
       if(userAns!=null) text+="Your answer: "+String.fromCharCode(65+userAns)+") "+q.choices[userAns]+"\n";
       else text+="Your answer: (blank)\n";
@@ -817,7 +854,7 @@ function buildShareText(){
     text+="\n✗ Missed Questions ("+missedItems.length+")\n";
     missedItems.forEach(({q,i,s,userAns})=>{
       text+="──────────────\n";
-      text+=SECTION_INFO[s.code].name+" Q"+(i+1)+"\n";
+      text+=SECTION_INFO[s.code].name+" Q"+(i+1)+" · "+topicLabel(q.topic)+"\n";
       text+=q.stem+"\n";
       if(userAns!=null) text+="Your answer: "+String.fromCharCode(65+userAns)+") "+q.choices[userAns]+"\n";
       else text+="Your answer: (blank)\n";
@@ -1116,15 +1153,12 @@ function renderResults(){
   stopTimer();
 
   // Build per-topic stats
-  const topicStats={};
+  const topicStats=buildTopicStats(app.sections);
   let totalCorrect=0, totalItems=0;
   app.sections.forEach(s=>{
     let correct=0;
     s.questions.forEach((q,i)=>{
-      const t=q.topic||"other";
-      if(!topicStats[t]) topicStats[t]={correct:0,total:0};
-      topicStats[t].total++;
-      if(s.answers[i]===q.answer){ correct++; topicStats[t].correct++; }
+      if(s.answers[i]===q.answer) correct++;
     });
     totalCorrect+=correct; totalItems+=s.questions.length;
   });
@@ -1149,9 +1183,7 @@ function renderResults(){
   ovEl.appendChild(sub);
 
   // Topic breakdown
-  const missedTopics=Object.entries(topicStats)
-    .filter(([,v])=>v.correct<v.total)
-    .sort((a,b)=>(a[1].correct/a[1].total)-(b[1].correct/b[1].total));
+  const missedTopics=sortedTopicStats(topicStats, true);
   const tbEl=el("topicBreakdown");
   tbEl.textContent="";
   const topicNode=makeTopicTable(missedTopics);
@@ -1184,6 +1216,12 @@ function logSession(totalCorrect, totalItems){
     sessionType: el("sessionType").value,
     totalCorrect,
     totalItems,
+    topicStats: sortedTopicStats(buildTopicStats(app.sections), false).map(([topic,v])=>({
+      topic,
+      label: topicLabel(topic),
+      correct: v.correct,
+      total: v.total,
+    })),
     sections: app.sections.map(s=>{
       let correct=0;
       const questions = s.questions.map((q,i)=>{
@@ -1193,6 +1231,7 @@ function logSession(totalCorrect, totalItems){
           id: q.id,
           section: q.section,
           topic: q.topic,
+          topicLabel: topicLabel(q.topic),
           stem: q.stem,
           choices: q.choices,
           correctIndex: q.answer,

@@ -55,7 +55,70 @@ function escHtml(s) {
     .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
+function topicLabel(q) {
+  return q.topicLabel || q.label || q.topic || "Other";
+}
+
+function sessionTopicStats(session) {
+  const stats = {};
+  if (Array.isArray(session.topicStats) && session.topicStats.length) {
+    session.topicStats.forEach(t => {
+      const key = t.topic || t.label || "other";
+      stats[key] = {
+        label: t.label || t.topic || "Other",
+        correct: Number(t.correct) || 0,
+        total: Number(t.total) || 0,
+      };
+    });
+    return stats;
+  }
+  (session.sections || []).forEach(sec => {
+    (sec.questions || []).forEach(q => {
+      const key = q.topic || q.topicLabel || "other";
+      if (!stats[key]) stats[key] = { label: topicLabel(q), correct: 0, total: 0 };
+      stats[key].total++;
+      if (q.correct) stats[key].correct++;
+    });
+  });
+  return stats;
+}
+
+function topicRows(stats, missedOnly = false) {
+  return Object.values(stats)
+    .filter(v => v.total && (!missedOnly || v.correct < v.total))
+    .sort((a, b) => (a.correct / a.total) - (b.correct / b.total) || b.total - a.total);
+}
+
+function aggregateTopicStats(sessions) {
+  const agg = {};
+  sessions.forEach(session => {
+    Object.entries(sessionTopicStats(session)).forEach(([key, v]) => {
+      if (!agg[key]) agg[key] = { label: v.label, correct: 0, total: 0 };
+      agg[key].correct += v.correct;
+      agg[key].total += v.total;
+    });
+  });
+  return agg;
+}
+
 function renderHTML(sessions) {
+  const allWeakRows = topicRows(aggregateTopicStats(sessions), true).slice(0, 10);
+  const aggregateWeak = allWeakRows.length ? `
+    <div class="panel">
+      <h2>Weak Areas Across Sessions</h2>
+      <table class="topic-table">
+        <thead><tr><th>Problem type</th><th>Correct</th><th>Total</th><th>Accuracy</th></tr></thead>
+        <tbody>
+          ${allWeakRows.map(v => `<tr>
+            <td>${escHtml(v.label)}</td>
+            <td>${v.correct}</td>
+            <td>${v.total}</td>
+            <td style="font-weight:700;color:${scoreColor(v.correct, v.total)}">${pct(v.correct, v.total)}</td>
+          </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>` : "";
+
   const rows = sessions.map((s, si) => {
     const totalPct = pct(s.totalCorrect, s.totalItems);
     const color = scoreColor(s.totalCorrect, s.totalItems);
@@ -70,6 +133,10 @@ function renderHTML(sessions) {
     const estimated = isGre && s.estimatedScore
       ? `<span style="margin-left:10px;font-size:12px;background:#f5f3ff;color:#6d28d9;border-radius:4px;padding:2px 7px;font-weight:700">~${s.estimatedScore}</span>`
       : "";
+    const weakRows = topicRows(sessionTopicStats(s), true).slice(0, 4);
+    const weakSummary = weakRows.length
+      ? `<div style="font-size:12px;color:#6b7280;margin-top:6px">Weak areas: ${weakRows.map(v => `${escHtml(v.label)} ${v.correct}/${v.total}`).join(" · ")}</div>`
+      : `<div style="font-size:12px;color:#166534;margin-top:6px">No missed problem types recorded.</div>`;
 
     const questionRows = (s.sections || []).flatMap(sec =>
       (sec.questions || []).map((q, qi) => {
@@ -80,9 +147,10 @@ function renderHTML(sessions) {
         const iconColor = correct ? "#166534" : "#991b1b";
         const stemShort = (q.stem || "").replace(/PASSAGE:[\s\S]*?QUESTION:/i, "").trim().slice(0, 140);
         const typeTag = q.qtype ? `<span style="background:#ede9fe;color:#6d28d9;border-radius:4px;padding:2px 6px;font-size:10px;font-weight:700;margin-right:4px">${escHtml(q.qtype)}</span>` : "";
+        const topicTag = `<span style="background:#f3f4f6;color:#374151;border-radius:4px;padding:2px 6px;font-size:10px;font-weight:700;margin-right:4px">${escHtml(topicLabel(q))}</span>`;
         return `<tr style="background:${bg};border-bottom:1px solid ${border}">
           <td style="padding:8px 10px;font-weight:700;color:${iconColor};text-align:center;width:32px">${icon}</td>
-          <td style="padding:8px 10px;font-size:13px;color:#374151"><span style="background:#e5e7eb;border-radius:4px;padding:2px 6px;font-size:11px;font-weight:700;margin-right:6px">${escHtml(sec.code)}</span>${typeTag}${escHtml(stemShort)}${q.stem && q.stem.length > 140 ? "…" : ""}</td>
+          <td style="padding:8px 10px;font-size:13px;color:#374151"><span style="background:#e5e7eb;border-radius:4px;padding:2px 6px;font-size:11px;font-weight:700;margin-right:6px">${escHtml(sec.code)}</span>${typeTag}${topicTag}${escHtml(stemShort)}${q.stem && q.stem.length > 140 ? "…" : ""}</td>
           <td style="padding:8px 10px;font-size:13px;color:#374151">${escHtml(q.studentText || "No answer")}</td>
           <td style="padding:8px 10px;font-size:13px;color:#166534;font-weight:600">${escHtml(q.correctText || "")}</td>
           <td style="padding:8px 10px;font-size:12px;color:#6b7280;max-width:200px">${escHtml(q.explanation || "")}</td>
@@ -99,6 +167,7 @@ function renderHTML(sessions) {
           <span style="margin-left:12px;font-size:13px;color:#6b7280">${escHtml(fmt(s.timestamp))}</span>
           <span style="margin-left:10px;font-size:12px;background:#e5e7eb;border-radius:4px;padding:2px 7px">${escHtml(s.sessionType || "FULL")} · ${escHtml(s.mode || "")}</span>
           ${estimated}
+          ${weakSummary}
         </div>
         <div style="display:flex;align-items:center;gap:16px">
           <div style="font-size:13px;color:#374151">${sectionSummary}</div>
@@ -136,12 +205,17 @@ function renderHTML(sessions) {
   .wrap { max-width:1100px; margin:0 auto; padding:24px 16px; }
   h1 { margin:0 0 4px; font-size:26px; }
   .sub { color:#6b7280; margin-bottom:24px; font-size:14px; }
+  .panel { background:#fff;border:1px solid #d1d5db;border-radius:12px;margin:18px 0 20px;padding:16px 20px; }
+  .panel h2 { font-size:18px;margin:0 0 10px; }
+  .topic-table { width:100%;border-collapse:collapse; }
+  .topic-table th, .topic-table td { border-bottom:1px solid #e5e7eb;padding:8px 10px;text-align:left;font-size:13px; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>Tutor Session Log</h1>
   <p class="sub">${sessions.length} session${sessions.length !== 1 ? "s" : ""} recorded — click a row to expand question detail</p>
+  ${aggregateWeak}
   ${rows}${empty}
 </div>
 <script>
