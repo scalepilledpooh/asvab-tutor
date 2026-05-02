@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>GRE Quantitative Practice Simulator</title>
+<style>
+  :root {
+    --bg: #f4f6f8;
+    --panel: #ffffff;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --line: #d1d5db;
+    --accent: #6d28d9;
+    --accent-soft: #ede9fe;
+    --good: #166534;
+    --good-soft: #dcfce7;
+    --warn: #92400e;
+    --warn-soft: #fef3c7;
+    --bad: #991b1b;
+    --bad-soft: #fee2e2;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: var(--bg); color: var(--text); }
+  .app { max-width: 1100px; margin: 0 auto; padding: 20px; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.04); }
+  h1, h2, h3 { margin-top: 0; }
+  .subtle { color: var(--muted); }
+  .grid { display: grid; gap: 16px; }
+  .grid.two { grid-template-columns: 1.2fr 0.8fr; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  label { font-weight: 600; display: block; margin-bottom: 6px; }
+  select, textarea, input[type=text] { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); font-size: 14px; background: #fff; font-family: inherit; }
+  textarea { min-height: 140px; resize: vertical; }
+  .btn { border: 1px solid var(--line); background: white; padding: 10px 14px; border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 14px; font-family: inherit; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: white; }
+  .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+  .pill { display: inline-block; padding: 6px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 700; margin-right: 8px; }
+  .pill.diff-easy { background: #dcfce7; color: #166534; }
+  .pill.diff-medium { background: #fef3c7; color: #92400e; }
+  .pill.diff-hard { background: #fee2e2; color: #991b1b; }
+  .progress-wrap { background: #e5e7eb; border-radius: 4px; height: 6px; margin-bottom: 10px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width 0.3s ease; }
+  .exam-shell { background: #fff; border: 1px solid #9ca3af; min-height: 640px; display: grid; grid-template-columns: 1fr 280px; }
+  .exam-main { padding: 18px 24px 90px 24px; position: relative; }
+  .exam-side { border-left: 1px solid var(--line); background: #fafafa; padding: 16px; }
+  .question-header { color: #4c1d95; font-size: 24px; font-weight: 700; text-align: center; margin: 8px 0 4px; }
+  .question-meta { text-align: center; font-size: 14px; color: var(--muted); margin-bottom: 12px; }
+  .question-stem { font-size: 18px; line-height: 1.55; white-space: pre-wrap; margin: 14px auto 14px; max-width: 760px; }
+  .qc-grid { max-width: 720px; margin: 12px auto 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .qc-box { border: 1px solid #9ca3af; border-radius: 10px; padding: 14px; background: #f9fafb; min-height: 80px; display: flex; flex-direction: column; gap: 6px; }
+  .qc-label { font-size: 12px; font-weight: 700; color: var(--muted); letter-spacing: 0.05em; text-transform: uppercase; }
+  .qc-value { font-size: 22px; font-weight: 600; }
+  .qc-given { max-width: 720px; margin: 6px auto 0; padding: 10px 14px; border: 1px dashed #c4b5fd; border-radius: 8px; background: #f5f3ff; font-size: 14px; }
+  .choices { max-width: 760px; margin: 0 auto; display: grid; gap: 10px; }
+  .choice { display: grid; grid-template-columns: 56px 1fr; align-items: stretch; border: 1px solid #9ca3af; border-radius: 8px; overflow: hidden; background: white; cursor: pointer; text-align: left; font-family: inherit; }
+  .choice:hover { background: #f9fafb; }
+  .choice.selected { border-color: var(--accent); background: var(--accent-soft); }
+  .choice-letter { display: flex; align-items: center; justify-content: center; background: #f3f4f6; font-weight: 700; font-size: 14px; color: #374151; border-right: 1px solid #d1d5db; }
+  .choice.selected .choice-letter { background: var(--accent); color: white; }
+  .choice.multi .choice-letter::before { content: "\25A2"; font-size: 18px; color: #6b7280; }
+  .choice.multi.selected .choice-letter::before { content: "\2611"; color: white; }
+  .choice.single .choice-letter::before { content: "\25CB"; font-size: 18px; color: #6b7280; margin-right: 4px; }
+  .choice.single.selected .choice-letter::before { content: "\25CF"; color: white; }
+  .choice .choice-letter span { margin-left: 4px; }
+  .choice-text { padding: 12px 14px; font-size: 15px; line-height: 1.4; }
+  .ne-input-wrap { max-width: 380px; margin: 14px auto; text-align: center; }
+  .ne-input-wrap input { padding: 12px 14px; font-size: 18px; font-family: monospace; text-align: center; border: 2px solid var(--accent); border-radius: 8px; }
+  .ne-frac { display: inline-grid; grid-template-rows: 1fr auto 1fr; align-items: center; gap: 4px; }
+  .ne-frac input { width: 100px; }
+  .ne-frac-bar { border-bottom: 2px solid #374151; width: 100%; }
+  .ne-help { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .qc-instr { max-width: 720px; margin: 0 auto 6px; font-size: 12px; color: var(--muted); text-align: center; }
+  .multi-instr { max-width: 760px; margin: 0 auto 8px; font-size: 13px; color: #4c1d95; font-weight: 700; text-align: center; }
+  .exam-footer { position: absolute; bottom: 0; left: 0; right: 0; padding: 14px 24px; background: #fff; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .footer-left { display: flex; gap: 8px; }
+  .footer-right { display: flex; gap: 8px; }
+  .status-box { font-size: 14px; font-family: monospace; color: #374151; }
+  .status-box.warn-time { color: var(--warn); font-weight: 700; }
+  .status-box.danger-time { color: var(--bad); font-weight: 700; }
+  .qmap { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 8px; }
+  .qchip { aspect-ratio: 1; border: 1px solid #9ca3af; background: #fff; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 700; color: #374151; padding: 0; }
+  .qchip.answered { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+  .qchip.flagged { box-shadow: inset 0 0 0 2px #f59e0b; }
+  .qchip.current { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .results-table { width: 100%; border-collapse: collapse; }
+  .results-table th, .results-table td { border-bottom: 1px solid var(--line); padding: 10px; text-align: left; vertical-align: top; }
+  .big-score { font-size: 48px; font-weight: 700; margin: 12px 0; color: var(--accent); }
+  .calc { position: fixed; right: 20px; bottom: 20px; width: 240px; background: #1f2937; color: #fff; border-radius: 12px; padding: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.25); display: none; z-index: 50; user-select: none; }
+  .calc.active { display: block; }
+  .calc-display { background: #111827; padding: 12px; border-radius: 8px; font-family: monospace; font-size: 22px; text-align: right; min-height: 28px; margin-bottom: 8px; overflow-x: auto; }
+  .calc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .calc-btn { background: #374151; color: #fff; border: none; padding: 12px; border-radius: 6px; font-size: 16px; cursor: pointer; font-family: inherit; }
+  .calc-btn:hover { background: #4b5563; }
+  .calc-btn.op { background: #6d28d9; }
+  .calc-btn.eq { background: #16a34a; }
+  .calc-btn.clr { background: #b91c1c; }
+  .calc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .calc-close { background: transparent; border: none; color: #9ca3af; cursor: pointer; font-size: 18px; }
+  ul.tight { margin: 6px 0 0 18px; padding: 0; }
+  ul.tight li { margin-bottom: 4px; }
+  .res-section { margin: 18px 0; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+  .res-q { padding: 10px; border-bottom: 1px solid #e5e7eb; }
+  .res-q:last-child { border-bottom: none; }
+  .res-q.correct { background: #f0fdf4; }
+  .res-q.wrong { background: #fff1f2; }
+  @media (max-width: 800px) {
+    .exam-shell { grid-template-columns: 1fr; }
+    .exam-side { border-left: none; border-top: 1px solid var(--line); }
+    .qc-grid { grid-template-columns: 1fr; }
+    .grid.two { grid-template-columns: 1fr; }
+    .big-score { font-size: 38px; }
+    .calc { width: calc(100% - 40px); }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ─────────────────────────────────────────────────────────────────────── -->
+<!-- SETUP SCREEN -->
+<!-- ─────────────────────────────────────────────────────────────────────── -->
+<div id="setupScreen" class="screen active">
+  <div class="card">
+    <h1>GRE Quantitative Reasoning — Practice Simulator</h1>
+    <p class="subtle">
+      Models the official shorter GRE Quant format (effective Sept 2023):
+      two section-level adaptive sections, 27 questions total, 47 minutes.
+      Section 2's difficulty is selected based on your Section 1 performance.
+    </p>
+    <p class="subtle" style="font-size:13px">
+      This simulator uses <strong>original representative practice items</strong>, not real ETS questions.
+      Estimated scaled scores are <strong>practice approximations only</strong> — not official GRE scores.
+    </p>
+
+    <div class="grid two" style="margin-top:18px">
+      <div>
+        <div style="margin-bottom:14px">
+          <label for="mode">Mode</label>
+          <select id="mode">
+            <option value="tutor">Tutor mode (back/forward freely, see answers at end)</option>
+            <option value="realistic">Realistic mode (back/forward only within section, then locked)</option>
+          </select>
+        </div>
+        <div style="margin-bottom:14px">
+          <label for="timerMode">Timer</label>
+          <select id="timerMode">
+            <option value="standard">Standard (21 min Section 1, 26 min Section 2)</option>
+            <option value="1.5">1.5x time</option>
+            <option value="2">2x time</option>
+            <option value="off">Timer off</option>
+          </select>
+        </div>
+        <div style="margin-bottom:14px">
+          <label for="forceDiff">Force Section 2 difficulty (override adaptive)</label>
+          <select id="forceDiff">
+            <option value="auto">Auto (true GRE adaptive)</option>
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+        <div style="margin-bottom:14px">
+          <label for="studentName">Student name <span style="font-weight:400;color:var(--muted)">(logged with results)</span></label>
+          <input type="text" id="studentName" placeholder="e.g. Marcus" />
+        </div>
+
+        <div class="row" style="margin-top:8px">
+          <button class="btn primary" id="startBtn" style="font-size:16px;padding:12px 22px;">Start practice test</button>
+          <button class="btn" id="demoTutorBtn">Quick start: Tutor mode + timer off</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="card" style="background:#faf5ff;border-color:#ddd6fe">
+          <strong>Standard section times (official shorter GRE)</strong><br>
+          <ul class="tight">
+            <li><strong>Section 1:</strong> 12 questions in 21 min (medium difficulty)</li>
+            <li><strong>Section 2:</strong> 15 questions in 26 min</li>
+            <li>Section 2 difficulty <strong>adapts</strong> to your Section 1 score</li>
+            <li>An on-screen 4-function calculator is available during the test</li>
+          </ul>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <strong>Tutor notes</strong>
+          <p class="subtle" style="font-size:13px;margin:6px 0 8px">
+            Tracks recurring missed topics across sessions. Persists in browser storage.
+          </p>
+          <textarea id="globalNotes" placeholder="Notes on this student's weak topics: e.g. probability, exponents, geometry…"></textarea>
+          <div class="row" style="margin-top:8px">
+            <button class="btn" id="saveNotesBtn">Save notes</button>
+            <span class="subtle" id="saveNotesMsg"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px;background:#f9fafb">
+      <strong>How the GRE Quant section adapts</strong>
+      <ul class="tight">
+        <li>Both sections count toward your scaled 130–170 Quant score.</li>
+        <li>If you do well on Section 1, Section 2 will be harder — but each correct answer on a hard section is worth more.</li>
+        <li>Within a section: navigate freely, mark for review, change answers up until you submit the section.</li>
+        <li>Once a section is submitted you cannot return to it.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ─────────────────────────────────────────────────────────────────────── -->
+<!-- SECTION TRANSITION SCREEN -->
+<!-- ─────────────────────────────────────────────────────────────────────── -->
+<div id="transitionScreen" class="screen">
+  <div class="card" style="text-align:center">
+    <h2 id="transTitle">Section complete</h2>
+    <div class="big-score" id="transScore"></div>
+    <p id="transMsg" class="subtle"></p>
+    <p id="transAdaptMsg" style="margin-top:14px;font-size:15px"></p>
+    <button class="btn primary" id="transBeginBtn" style="font-size:16px;padding:14px 32px;margin-top:10px;">Begin Section 2</button>
+  </div>
+</div>
+
+<!-- ─────────────────────────────────────────────────────────────────────── -->
+<!-- EXAM SCREEN -->
+<!-- ─────────────────────────────────────────────────────────────────────── -->
+<div id="examScreen" class="screen">
+  <div class="exam-shell">
+    <div class="exam-main">
+      <div class="progress-wrap"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="question-header" id="sectionTitle"></div>
+      <div class="question-meta" id="sectionMeta"></div>
+
+      <div id="questionArea"></div>
+
+      <div class="exam-footer">
+        <div class="footer-left">
+          <button class="btn" id="prevBtn">Previous</button>
+          <button class="btn" id="flagBtn">Mark for Review</button>
+        </div>
+        <div class="footer-right">
+          <button class="btn" id="calcBtn">Calculator</button>
+          <button class="btn primary" id="nextBtn">Next</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="exam-side">
+      <div class="status-box" id="statusBox">
+        <div>Time: <span id="statusTime">--:--</span></div>
+        <div>Question <span id="statusCount">1 / 12</span></div>
+        <div style="margin-top:6px"><span class="pill" id="modeBadge">Mode</span><span class="pill" id="diffBadge">Difficulty</span></div>
+      </div>
+
+      <div style="margin-top:14px">
+        <strong style="font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em">Question Map</strong>
+        <div class="qmap" id="reviewGrid"></div>
+        <p class="subtle" id="qmapNote" style="font-size:12px;margin-top:8px"></p>
+        <button class="btn" id="reviewSectionBtn" style="width:100%;margin-top:8px">Review &amp; Submit Section</button>
+      </div>
+
+      <div style="margin-top:14px">
+        <label style="font-size:12px">Notes</label>
+        <textarea id="inlineNotes" style="min-height:80px;font-size:12px"></textarea>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─────────────────────────────────────────────────────────────────────── -->
+<!-- SECTION REVIEW SCREEN -->
+<!-- ─────────────────────────────────────────────────────────────────────── -->
+<div id="sectionReviewScreen" class="screen">
+  <div class="card">
+    <h2 id="reviewTitle">Review section before submitting</h2>
+    <p class="subtle">Click any question number to jump back. Yellow = marked for review. Gray = unanswered.</p>
+    <div class="qmap" id="bigReviewGrid" style="grid-template-columns:repeat(8,1fr);max-width:600px;margin:14px 0"></div>
+    <div id="reviewSummary" class="subtle" style="margin:10px 0"></div>
+    <div class="row">
+      <button class="btn" id="returnToSectionBtn">Return to Section</button>
+      <button class="btn primary" id="submitSectionBtn">Submit Section (cannot return)</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─────────────────────────────────────────────────────────────────────── -->
+<!-- RESULTS SCREEN -->
+<!-- ─────────────────────────────────────────────────────────────────────── -->
+<div id="resultsScreen" class="screen">
+  <div class="card">
+    <h1>Practice test results</h1>
+    <div id="resultsHeader"></div>
+    <p class="subtle">
+      <strong>Important:</strong> This is a practice estimate only. Official GRE scoring uses a proprietary
+      algorithm that weighs both the number correct and the section-level difficulty. Use this score
+      as directional feedback, not as an official prediction.
+    </p>
+    <div id="resultsBody"></div>
+    <div class="row" style="margin-top:18px">
+      <button class="btn primary" id="restartBtn">New practice test</button>
+      <button class="btn" id="shareBtn">Copy summary</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─────────────────────────────────────────────────────────────────────── -->
+<!-- ON-SCREEN CALCULATOR -->
+<!-- ─────────────────────────────────────────────────────────────────────── -->
+<div class="calc" id="calculator">
+  <div class="calc-header">
+    <strong style="font-size:13px">Calculator</strong>
+    <button class="calc-close" id="calcCloseBtn">×</button>
+  </div>
+  <div class="calc-display" id="calcDisplay">0</div>
+  <div class="calc-grid">
+    <button class="calc-btn clr" data-act="C">C</button>
+    <button class="calc-btn clr" data-act="CE">CE</button>
+    <button class="calc-btn op"  data-act="±">±</button>
+    <button class="calc-btn op"  data-act="÷">÷</button>
+    <button class="calc-btn"     data-act="7">7</button>
+    <button class="calc-btn"     data-act="8">8</button>
+    <button class="calc-btn"     data-act="9">9</button>
+    <button class="calc-btn op"  data-act="×">×</button>
+    <button class="calc-btn"     data-act="4">4</button>
+    <button class="calc-btn"     data-act="5">5</button>
+    <button class="calc-btn"     data-act="6">6</button>
+    <button class="calc-btn op"  data-act="−">−</button>
+    <button class="calc-btn"     data-act="1">1</button>
+    <button class="calc-btn"     data-act="2">2</button>
+    <button class="calc-btn"     data-act="3">3</button>
+    <button class="calc-btn op"  data-act="+">+</button>
+    <button class="calc-btn"     data-act="0" style="grid-column:span 2">0</button>
+    <button class="calc-btn"     data-act=".">.</button>
+    <button class="calc-btn eq"  data-act="=">=</button>
+    <button class="calc-btn"     data-act="√" style="grid-column:span 4">√</button>
+  </div>
+</div>
+
+</div>
+
+<script>
+"use strict";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GRE QUANTITATIVE QUESTION BANK
+// Question types: MC1 (single choice), MCN (multi choice), QC (quantitative
+// comparison), NE (numeric entry).
+// ─────────────────────────────────────────────────────────────────────────────
+
+const QC_CHOICES = [
+  "Quantity A is greater.",
+  "Quantity B is greater.",
+  "The two quantities are equal.",
+  "The relationship cannot be determined from the information given."
+];
+
+const QUESTION_BANK = [
+  // ─── EASY POOL ─────────────────────────────────────────────────────────────
+  { id:"E1",  qtype:"MC1", difficulty:"easy", topic:"arithmetic",
+    stem:"What is 40% of 75?",
+    choices:["24","28","30","32","35"], answer:2,
+    explanation:"40% of 75 = 0.40 × 75 = 30." },
+  { id:"E2",  qtype:"MC1", difficulty:"easy", topic:"arithmetic",
+    stem:"A store sells apples for $0.60 each. How many apples can be bought for $7.20?",
+    choices:["10","11","12","13","14"], answer:2,
+    explanation:"7.20 / 0.60 = 12 apples." },
+  { id:"E3",  qtype:"MC1", difficulty:"easy", topic:"algebra",
+    stem:"If 5x − 3 = 17, what is the value of x?",
+    choices:["2","3","4","5","6"], answer:2,
+    explanation:"5x = 20, so x = 4." },
+  { id:"E4",  qtype:"MC1", difficulty:"easy", topic:"geometry",
+    stem:"A rectangle has length 12 and width 5. What is its perimeter?",
+    choices:["24","30","34","60","64"], answer:2,
+    explanation:"P = 2(12 + 5) = 34." },
+  { id:"E5",  qtype:"MC1", difficulty:"easy", topic:"arithmetic",
+    stem:"What is the least common multiple of 4 and 6?",
+    choices:["2","8","10","12","24"], answer:3,
+    explanation:"Multiples of 4: 4, 8, 12. Multiples of 6: 6, 12. LCM = 12." },
+  { id:"E6",  qtype:"QC",  difficulty:"easy", topic:"arithmetic",
+    stem:"x is a positive integer.",
+    qtyA:"The remainder when 2x is divided by 2", qtyB:"1",
+    choices:QC_CHOICES, answer:1,
+    explanation:"2x is always even, so the remainder is 0. Quantity B (1) is greater." },
+  { id:"E7",  qtype:"QC",  difficulty:"easy", topic:"arithmetic",
+    stem:"", qtyA:"3/8 + 5/8", qtyB:"1",
+    choices:QC_CHOICES, answer:2,
+    explanation:"3/8 + 5/8 = 8/8 = 1, so the quantities are equal." },
+  { id:"E8",  qtype:"MC1", difficulty:"easy", topic:"geometry",
+    stem:"A right triangle has legs of length 3 and 4. What is the hypotenuse?",
+    choices:["5","6","7","√14","√18"], answer:0,
+    explanation:"3-4-5 Pythagorean triple. √(9+16) = √25 = 5." },
+  { id:"E9",  qtype:"NE",  difficulty:"easy", topic:"arithmetic",
+    stem:"What is the value of 12 ÷ (1/2)?",
+    answer:24,
+    explanation:"Dividing by 1/2 is the same as multiplying by 2: 12 × 2 = 24." },
+  { id:"E10", qtype:"MC1", difficulty:"easy", topic:"algebra",
+    stem:"If a/b = 3 and b = 7, what is a?",
+    choices:["10","14","21","28","42"], answer:2,
+    explanation:"a = 3b = 3 × 7 = 21." },
+  { id:"E11", qtype:"QC",  difficulty:"easy", topic:"arithmetic",
+    stem:"n = 100.", qtyA:"n% of 50", qtyB:"50% of n",
+    choices:QC_CHOICES, answer:2,
+    explanation:"n% of 50 = 1.00 × 50 = 50. 50% of n = 0.50 × 100 = 50. Equal." },
+  { id:"E12", qtype:"MC1", difficulty:"easy", topic:"data",
+    stem:"What is the arithmetic mean of {4, 8, 12, 16, 20}?",
+    choices:["10","11","12","14","16"], answer:2,
+    explanation:"Sum = 60, count = 5, mean = 60/5 = 12." },
+  { id:"E13", qtype:"NE",  difficulty:"easy", topic:"algebra",
+    stem:"Solve for x: 3x + 5 = 20.",
+    answer:5,
+    explanation:"3x = 15, so x = 5." },
+  { id:"E14", qtype:"MC1", difficulty:"easy", topic:"arithmetic",
+    stem:"Which of the following is greater?",
+    choices:["The fractions are equal","2/3","3/4","Cannot be determined","5/7"], answer:2,
+    explanation:"2/3 ≈ 0.667; 3/4 = 0.750. 3/4 is greater." },
+  { id:"E15", qtype:"MCN", difficulty:"easy", topic:"algebra",
+    stem:"Indicate ALL values of x that satisfy |x| < 3.",
+    choices:["−5","−2","0","1","4"], answer:[1,2,3],
+    explanation:"|x| < 3 means −3 < x < 3. Of the choices: −2, 0, and 1 satisfy." },
+  { id:"E16", qtype:"QC",  difficulty:"easy", topic:"algebra",
+    stem:"x < 0.", qtyA:"x²", qtyB:"x",
+    choices:QC_CHOICES, answer:0,
+    explanation:"For any negative x, x² > 0 > x, so Quantity A is always greater." },
+  { id:"E17", qtype:"MC1", difficulty:"easy", topic:"arithmetic",
+    stem:"A store raises a price by 20% and then lowers the new price by 20%. What is the net percent change from the original price?",
+    choices:["−4%","−2%","0%","2%","4%"], answer:0,
+    explanation:"100 → 120 → 96. Net change = −4%." },
+  { id:"E18", qtype:"NE",  difficulty:"easy", topic:"geometry",
+    stem:"What is the area of a triangle with base 8 and height 5?",
+    answer:20,
+    explanation:"Area = (1/2)(8)(5) = 20." },
+  { id:"E19", qtype:"MC1", difficulty:"easy", topic:"probability",
+    stem:"A bag contains 4 red and 6 blue marbles. If one marble is drawn at random, what is the probability that it is red?",
+    choices:["1/4","1/3","2/5","3/5","2/3"], answer:2,
+    explanation:"P(red) = 4 / (4+6) = 4/10 = 2/5." },
+  { id:"E20", qtype:"MC1", difficulty:"easy", topic:"arithmetic",
+    stem:"What is the value of 2³ × 3²?",
+    choices:["48","60","72","96","108"], answer:2,
+    explanation:"8 × 9 = 72." },
+  { id:"E21", qtype:"MCN", difficulty:"easy", topic:"arithmetic",
+    stem:"Indicate ALL of the following that are factors of 12.",
+    choices:["2","3","5","6","8"], answer:[0,1,3],
+    explanation:"12 = 2·2·3, so its factors include 2, 3, and 6 (but not 5 or 8)." },
+  { id:"E22", qtype:"MC1", difficulty:"easy", topic:"data",
+    stem:"What is the median of {3, 7, 2, 9, 5}?",
+    choices:["2","3","5","7","9"], answer:2,
+    explanation:"Sorted: 2, 3, 5, 7, 9. Middle value = 5." },
+  { id:"E23", qtype:"QC",  difficulty:"easy", topic:"geometry",
+    stem:"", qtyA:"Number of degrees in a straight angle", qtyB:"Number of degrees in two right angles",
+    choices:QC_CHOICES, answer:2,
+    explanation:"Straight angle = 180°. Two right angles = 2 × 90° = 180°. Equal." },
+
+  // ─── MEDIUM POOL ───────────────────────────────────────────────────────────
+  { id:"M1",  qtype:"MC1", difficulty:"medium", topic:"algebra",
+    stem:"If x² − 7x + 12 = 0, what is the product of all possible values of x?",
+    choices:["−12","−7","3","7","12"], answer:4,
+    explanation:"By Vieta's: product of roots = c/a = 12/1 = 12. (Roots are 3 and 4.)" },
+  { id:"M2",  qtype:"QC",  difficulty:"medium", topic:"algebra",
+    stem:"0 < x < 1.", qtyA:"x³", qtyB:"x²",
+    choices:QC_CHOICES, answer:1,
+    explanation:"For 0 < x < 1, multiplying by x makes the value smaller, so x³ < x². B is greater." },
+  { id:"M3",  qtype:"MC1", difficulty:"medium", topic:"geometry",
+    stem:"The circumference of a circle is 16π. What is the area of the circle?",
+    choices:["8π","16π","32π","64π","256π"], answer:3,
+    explanation:"C = 2πr = 16π → r = 8. A = πr² = 64π." },
+  { id:"M4",  qtype:"NE",  difficulty:"medium", topic:"algebra",
+    stem:"In an arithmetic sequence the first term is 3 and each subsequent term is 4 greater than the previous. What is the 10th term?",
+    answer:39,
+    explanation:"a₁₀ = 3 + (10 − 1)(4) = 3 + 36 = 39." },
+  { id:"M5",  qtype:"MC1", difficulty:"medium", topic:"algebra",
+    stem:"If f(x) = 2x² − 3x + 1, what is f(−2)?",
+    choices:["3","7","9","11","15"], answer:4,
+    explanation:"f(−2) = 2(4) − 3(−2) + 1 = 8 + 6 + 1 = 15." },
+  { id:"M6",  qtype:"QC",  difficulty:"medium", topic:"data",
+    stem:"A set of five numbers has mean equal to 10.",
+    qtyA:"Sum of the five numbers", qtyB:"45",
+    choices:QC_CHOICES, answer:0,
+    explanation:"Sum = mean × count = 10 × 5 = 50, which is greater than 45." },
+  { id:"M7",  qtype:"MC1", difficulty:"medium", topic:"geometry",
+    stem:"A rectangular box has dimensions 3 × 4 × 5. What is the length of the longest line segment that fits inside the box?",
+    choices:["5","√34","5√2","6","7"], answer:2,
+    explanation:"Space diagonal = √(3² + 4² + 5²) = √50 = 5√2." },
+  { id:"M8",  qtype:"NE",  difficulty:"medium", topic:"algebra",
+    stem:"If |2x − 5| = 9, what is the sum of all possible values of x?",
+    answer:5,
+    explanation:"2x − 5 = 9 → x = 7. 2x − 5 = −9 → x = −2. Sum = 5." },
+  { id:"M9",  qtype:"MCN", difficulty:"medium", topic:"arithmetic",
+    stem:"n is a positive integer. Indicate ALL values of n for which n! is divisible by 12.",
+    choices:["2","3","4","5","6"], answer:[2,3,4],
+    explanation:"4! = 24 (yes), 5! = 120 (yes), 6! = 720 (yes). 2! = 2 and 3! = 6 are not divisible by 12." },
+  { id:"M10", qtype:"QC",  difficulty:"medium", topic:"geometry",
+    stem:"A square has diagonal of length d.",
+    qtyA:"Area of the square", qtyB:"d²/2",
+    choices:QC_CHOICES, answer:2,
+    explanation:"Side = d/√2, so area = (d/√2)² = d²/2. The two quantities are equal." },
+  { id:"M11", qtype:"MC1", difficulty:"medium", topic:"algebra",
+    stem:"At what x-coordinate does the line y = 3x − 6 cross the x-axis?",
+    choices:["−6","−2","0","2","6"], answer:3,
+    explanation:"Set y = 0: 3x − 6 = 0, so x = 2." },
+  { id:"M12", qtype:"NE",  difficulty:"medium", topic:"probability",
+    stem:"Two fair six-sided dice are rolled. The probability that their sum is 7 can be written as k/36. What is k?",
+    answer:6,
+    explanation:"Pairs summing to 7: (1,6)(2,5)(3,4)(4,3)(5,2)(6,1) = 6 ways." },
+  { id:"M13", qtype:"MC1", difficulty:"medium", topic:"algebra",
+    stem:"If 2x + 3y = 18 and x + y = 7, what is the value of x?",
+    choices:["1","2","3","4","5"], answer:2,
+    explanation:"From x + y = 7: y = 7 − x. Sub: 2x + 3(7 − x) = 18 → 21 − x = 18 → x = 3." },
+  { id:"M14", qtype:"QC",  difficulty:"medium", topic:"geometry",
+    stem:"A circle has area A.",
+    qtyA:"The radius of the circle", qtyB:"√(A/π)",
+    choices:QC_CHOICES, answer:2,
+    explanation:"A = πr² → r = √(A/π). Equal." },
+  { id:"M15", qtype:"MC1", difficulty:"medium", topic:"counting",
+    stem:"How many integers from 1 to 100, inclusive, are divisible by neither 2 nor 5?",
+    choices:["30","40","45","50","60"], answer:1,
+    explanation:"By inclusion-exclusion: |div by 2 or 5| = 50 + 20 − 10 = 60. Neither: 100 − 60 = 40." },
+  { id:"M16", qtype:"NE",  difficulty:"medium", topic:"geometry",
+    stem:"A right circular cone has radius 3 and height 4. What is its slant height?",
+    answer:5,
+    explanation:"Slant = √(r² + h²) = √(9 + 16) = √25 = 5." },
+  { id:"M17", qtype:"MCN", difficulty:"medium", topic:"algebra",
+    stem:"Indicate ALL integer values that satisfy x² − x − 6 < 0.",
+    choices:["−2","−1","0","2","3"], answer:[1,2,3],
+    explanation:"Factor: (x − 3)(x + 2) < 0 → −2 < x < 3. Integers strictly between: −1, 0, 1, 2." },
+  { id:"M18", qtype:"MC1", difficulty:"medium", topic:"algebra",
+    stem:"If 2^a = 8 and 3^b = 27, what is a + b?",
+    choices:["4","5","6","7","9"], answer:2,
+    explanation:"a = 3 and b = 3, so a + b = 6." },
+  { id:"M19", qtype:"QC",  difficulty:"medium", topic:"algebra",
+    stem:"xy > 0.", qtyA:"x", qtyB:"y",
+    choices:QC_CHOICES, answer:3,
+    explanation:"xy > 0 only requires same sign; magnitudes are unconstrained. Cannot determine." },
+  { id:"M20", qtype:"MC1", difficulty:"medium", topic:"probability",
+    stem:"A bag holds 3 red, 4 blue, and 5 green marbles. Two marbles are drawn at random without replacement. What is the probability that both have the same color?",
+    choices:["1/6","19/66","5/12","1/3","7/22"], answer:1,
+    explanation:"P = [C(3,2) + C(4,2) + C(5,2)] / C(12,2) = (3 + 6 + 10) / 66 = 19/66." },
+  { id:"M21", qtype:"NE",  difficulty:"medium", topic:"arithmetic",
+    stem:"The sum of 5 consecutive integers is 85. What is the middle integer?",
+    answer:17,
+    explanation:"Mean = 85/5 = 17, which is also the middle term of consecutive integers." },
+  { id:"M22", qtype:"MC1", difficulty:"medium", topic:"geometry",
+    stem:"Two parallel lines are cut by a transversal. One pair of corresponding angles measures 65°. What is the measure of a co-interior (same-side interior) angle on the same side?",
+    choices:["25°","65°","90°","115°","130°"], answer:3,
+    explanation:"Same-side interior angles are supplementary: 180 − 65 = 115°." },
+  { id:"M23", qtype:"MCN", difficulty:"medium", topic:"arithmetic",
+    stem:"Indicate ALL of the following that are perfect squares.",
+    choices:["16","24","36","49","54"], answer:[0,2,3],
+    explanation:"16 = 4², 36 = 6², 49 = 7². 24 and 54 are not perfect squares." },
+  { id:"M24", qtype:"QC",  difficulty:"medium", topic:"data",
+    stem:"All values in a dataset with mean 20 are multiplied by 2.",
+    qtyA:"The new mean", qtyB:"40",
+    choices:QC_CHOICES, answer:2,
+    explanation:"Multiplying every value by k multiplies the mean by k: 20 × 2 = 40." },
+  { id:"M25", qtype:"MC1", difficulty:"medium", topic:"algebra",
+    stem:"If x/4 + 3x/8 = 10, what is x?",
+    choices:["8","12","14","16","20"], answer:3,
+    explanation:"Common denom: 2x/8 + 3x/8 = 5x/8 = 10 → x = 16." },
+  { id:"M26", qtype:"MC1", difficulty:"medium", topic:"data",
+    stem:"A class of 30 students has a mean test score of 78. After one student's score of 96 is removed, what is the new mean (rounded to nearest tenth)?",
+    choices:["77.4","77.0","77.8","78.0","78.6"], answer:0,
+    explanation:"Total = 78 × 30 = 2340. Remove 96 → 2244. New mean = 2244 / 29 ≈ 77.4." },
+  { id:"M27", qtype:"NE",  difficulty:"medium", topic:"algebra",
+    stem:"If 3^(x+1) = 81, what is x?",
+    answer:3,
+    explanation:"81 = 3⁴, so x + 1 = 4, giving x = 3." },
+
+  // ─── HARD POOL ─────────────────────────────────────────────────────────────
+  { id:"H1",  qtype:"QC",  difficulty:"hard", topic:"algebra",
+    stem:"x is a real number, x ≠ 0.",
+    qtyA:"x + 1/x", qtyB:"2",
+    choices:QC_CHOICES, answer:3,
+    explanation:"For x > 0: x + 1/x ≥ 2 (AM-GM). For x < 0: x + 1/x ≤ −2 < 2. Without sign of x, cannot determine." },
+  { id:"H2",  qtype:"MC1", difficulty:"hard", topic:"geometry",
+    stem:"Two sides of a triangle have lengths 7 and 11. How many integer values are possible for the third side?",
+    choices:["11","12","13","14","15"], answer:2,
+    explanation:"Triangle inequality: 4 < s < 18, so s ∈ {5, 6, …, 17} → 13 integers." },
+  { id:"H3",  qtype:"NE",  difficulty:"hard", topic:"arithmetic",
+    stem:"Working alone, machine A finishes a job in 6 hours and machine B finishes the same job in 4 hours. Working together at their constant rates, how many hours do they need? (Enter as a decimal rounded to the nearest tenth.)",
+    answer:2.4,
+    explanation:"Combined rate = 1/6 + 1/4 = 5/12 per hour. Time = 12/5 = 2.4 hours." },
+  { id:"H4",  qtype:"MC1", difficulty:"hard", topic:"counting",
+    stem:"How many 4-digit positive integers have all four digits distinct?",
+    choices:["3024","4032","4536","5040","6720"], answer:2,
+    explanation:"Thousands: 9 choices (1-9). Hundreds: 9 (any except thousands). Tens: 8. Units: 7. Total = 9·9·8·7 = 4536." },
+  { id:"H5",  qtype:"MCN", difficulty:"hard", topic:"data",
+    stem:"S = {2, 4, 6, 8, 10}. The number 8 is removed from S. Indicate ALL statistics that DECREASE.",
+    choices:["Mean","Median","Range","Standard deviation","Sum"], answer:[0,1,4],
+    explanation:"Mean: 6 → 5.5 (decreases). Median: 6 → 5 (decreases). Range: 8 → 8 (same). SD: 2.83 → 2.96 (increases). Sum: 30 → 22 (decreases)." },
+  { id:"H6",  qtype:"QC",  difficulty:"hard", topic:"geometry",
+    stem:"A regular hexagon has side length s.",
+    qtyA:"Area of the hexagon", qtyB:"(3√3 / 2) · s²",
+    choices:QC_CHOICES, answer:2,
+    explanation:"A regular hexagon = 6 equilateral triangles of side s, total area = 6 · (√3/4)s² = (3√3/2)s². Equal." },
+  { id:"H7",  qtype:"MC1", difficulty:"hard", topic:"algebra",
+    stem:"For g(x) = (x + 2)(x − 3), what set is the range of g over the domain {1, 2, 3, 4}?",
+    choices:["{−6, −4, 0, 6}","{−4, 0, 2, 6}","{−6, 0, 4, 6}","{−4, 0, 4, 8}","{−6, −4, 2, 6}"], answer:0,
+    explanation:"g(1)=−6, g(2)=−4, g(3)=0, g(4)=6 → {−6, −4, 0, 6}." },
+  { id:"H8",  qtype:"NE",  difficulty:"hard", topic:"counting",
+    stem:"In how many ways can 5 people be seated in a row of 5 chairs if two specific people must sit next to each other?",
+    answer:48,
+    explanation:"Treat the pair as a single block: 4! arrangements × 2 internal orderings = 48." },
+  { id:"H9",  qtype:"MC1", difficulty:"hard", topic:"algebra",
+    stem:"For which range of x is (x − 3)(x + 5) > 0?",
+    choices:["−5 < x < 3","x < −5 or x > 3","x < 3","x > −5","−3 < x < 5"], answer:1,
+    explanation:"Product is positive when both factors share sign: x > 3 or x < −5." },
+  { id:"H10", qtype:"QC",  difficulty:"hard", topic:"arithmetic",
+    stem:"n is a positive integer.",
+    qtyA:"Number of positive divisors of n²", qtyB:"1 plus the number of positive divisors of n",
+    choices:QC_CHOICES, answer:3,
+    explanation:"For n = 1: A = 1, B = 2 → A < B. For n = 4: A = 5, B = 4 → A > B. Cannot determine." },
+  { id:"H11", qtype:"MC1", difficulty:"hard", topic:"geometry",
+    stem:"A sector of a circle has central angle 120° and radius 6. What is the sector's area?",
+    choices:["6π","8π","12π","18π","24π"], answer:2,
+    explanation:"(120/360) · π · 6² = (1/3) · 36π = 12π." },
+  { id:"H12", qtype:"NE",  difficulty:"hard", topic:"algebra",
+    stem:"If log₂(x) + log₂(x − 6) = 4, what is the value of x?",
+    answer:8,
+    explanation:"log₂[x(x−6)] = 4 → x(x−6) = 16 → x² − 6x − 16 = 0 → (x − 8)(x + 2) = 0. Domain rules out x = −2; x = 8." },
+  { id:"H13", qtype:"MCN", difficulty:"hard", topic:"algebra",
+    stem:"Indicate ALL roots of 6x² + x − 2 = 0.",
+    choices:["−2/3","−1/2","1/3","1/2","2/3"], answer:[0,3],
+    explanation:"Quadratic formula: x = (−1 ± √(1 + 48)) / 12 = (−1 ± 7)/12 = 1/2 or −2/3." },
+  { id:"H14", qtype:"QC",  difficulty:"hard", topic:"algebra",
+    stem:"a > b > 0.",
+    qtyA:"a / b", qtyB:"(a + 1) / (b + 1)",
+    choices:QC_CHOICES, answer:0,
+    explanation:"Cross-multiply (positives): a(b+1) vs b(a+1) → ab + a vs ab + b → a vs b. Since a > b, A is greater." },
+  { id:"H15", qtype:"MC1", difficulty:"hard", topic:"counting",
+    stem:"How many distinguishable arrangements are there of the letters in the word MATHEMATICS?",
+    choices:["5,040","45,360","907,200","4,989,600","39,916,800"], answer:3,
+    explanation:"11! / (2! · 2! · 2!) = 39,916,800 / 8 = 4,989,600 (M, A, T each appear twice)." },
+  { id:"H16", qtype:"NE",  difficulty:"hard", topic:"data",
+    stem:"A set of 10 numbers has mean 15. A second set of 20 numbers has mean 12. What is the mean of all 30 numbers combined?",
+    answer:13,
+    explanation:"Combined sum = 10·15 + 20·12 = 150 + 240 = 390. Mean = 390/30 = 13." },
+  { id:"H17", qtype:"MC1", difficulty:"hard", topic:"geometry",
+    stem:"In the coordinate plane, what is the area of the triangle with vertices (0, 0), (4, 0), and (2, 6)?",
+    choices:["8","10","12","16","24"], answer:2,
+    explanation:"Base along x-axis = 4, height (perpendicular) = 6. Area = (1/2)(4)(6) = 12." },
+  { id:"H18", qtype:"QC",  difficulty:"hard", topic:"algebra",
+    stem:"n is a positive integer.",
+    qtyA:"3^(2n)", qtyB:"9^n",
+    choices:QC_CHOICES, answer:2,
+    explanation:"3^(2n) = (3²)^n = 9^n. The two quantities are equal." },
+  { id:"H19", qtype:"MC1", difficulty:"hard", topic:"probability",
+    stem:"A jar holds 6 white and 4 black marbles. Three marbles are drawn at random without replacement. What is the probability that exactly 2 are white?",
+    choices:["1/4","1/3","3/8","1/2","3/5"], answer:3,
+    explanation:"P = C(6,2)·C(4,1) / C(10,3) = 15·4 / 120 = 60/120 = 1/2." },
+  { id:"H20", qtype:"MCN", difficulty:"hard", topic:"arithmetic",
+    stem:"n is a positive integer. Indicate ALL of the following expressions that must be even.",
+    choices:["n + n","n(n + 1)","2n + 1","n² + n","n(n − 1)"], answer:[0,1,3,4],
+    explanation:"n+n = 2n (even); n(n+1) is product of consecutive integers (even); 2n+1 is odd; n²+n = n(n+1) (even); n(n−1) is product of consecutive integers (even)." },
+  { id:"H21", qtype:"NE",  difficulty:"hard", topic:"geometry",
+    stem:"A right circular cylinder has volume 200π and height 8. What is its radius?",
+    answer:5,
+    explanation:"V = πr²h → 200π = πr²(8) → r² = 25 → r = 5." }
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SECTION DEFINITIONS (official shorter GRE Quant)
+// ─────────────────────────────────────────────────────────────────────────────
+const SECTION_DEFS = {
+  Q1: { name:"Quantitative Reasoning — Section 1", count:12, minutes:21 },
+  Q2: { name:"Quantitative Reasoning — Section 2", count:15, minutes:26 }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+function el(id){ return document.getElementById(id); }
+function ce(tag, cls){ const e = document.createElement(tag); if (cls) e.className = cls; return e; }
+function shuffle(arr){
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function fmtTime(s){
+  if (s == null) return "—";
+  const m = Math.floor(s / 60), ss = s % 60;
+  return m + ":" + (ss < 10 ? "0" : "") + ss;
+}
+function showScreen(name){
+  ["setupScreen","transitionScreen","examScreen","sectionReviewScreen","resultsScreen"]
+    .forEach(s => el(s).classList.toggle("active", s === name + "Screen"));
+}
+function getMultiplier(mode){
+  if (mode === "off") return null;
+  if (mode === "1.5") return 1.5;
+  if (mode === "2") return 2;
+  return 1;
+}
+function arrEq(a, b){
+  if (!Array.isArray(a) || !Array.isArray(b)) return false;
+  if (a.length !== b.length) return false;
+  const sa = a.slice().sort((x,y) => x - y);
+  const sb = b.slice().sort((x,y) => x - y);
+  return sa.every((v, i) => v === sb[i]);
+}
+function neEq(student, correct){
+  if (student == null || student === "") return false;
+  const sNum = parseFloat(student);
+  if (isNaN(sNum)) return false;
+  return Math.abs(sNum - parseFloat(correct)) < 1e-6;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NOTES (browser storage)
+// ─────────────────────────────────────────────────────────────────────────────
+const NOTES_KEY = "gre.tutor.notes.v1";
+function loadNotes(){
+  try { el("globalNotes").value = localStorage.getItem(NOTES_KEY) || ""; } catch {}
+}
+function saveNotes(){
+  try {
+    localStorage.setItem(NOTES_KEY, el("globalNotes").value);
+    el("saveNotesMsg").textContent = "Saved.";
+    setTimeout(() => el("saveNotesMsg").textContent = "", 1400);
+  } catch {}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SESSION STATE
+// ─────────────────────────────────────────────────────────────────────────────
+let app = null;
+let timerHandle = null;
+
+function pickQuestions(difficulty, count){
+  const pool = QUESTION_BANK.filter(q => q.difficulty === difficulty);
+  const picked = shuffle(pool).slice(0, count);
+  // pad if pool too small (shouldn't happen in normal use)
+  while (picked.length < count) picked.push(pool[picked.length % pool.length]);
+  return picked;
+}
+
+function buildSession(){
+  const mode = el("mode").value;
+  const tmr = el("timerMode").value;
+  const forceDiff = el("forceDiff").value;
+  const mult = getMultiplier(tmr);
+
+  const section1 = {
+    code:"Q1",
+    difficulty:"medium",
+    questions: pickQuestions("medium", SECTION_DEFS.Q1.count),
+    answers:Array(SECTION_DEFS.Q1.count).fill(null),
+    flagged:Array(SECTION_DEFS.Q1.count).fill(false),
+    currentIndex:0,
+    secondsRemaining: mult == null ? null : Math.round(SECTION_DEFS.Q1.minutes * 60 * mult),
+    completed:false,
+    score:0
+  };
+  // Section 2 is built after Section 1 completes (so we know adapted difficulty)
+  return { mode, timerMode:tmr, forceDiff, mult, sectionPointer:0, sections:[section1] };
+}
+
+function buildSection2(){
+  // Adaptive difficulty based on Section 1 score
+  let diff = "medium";
+  if (app.forceDiff !== "auto") {
+    diff = app.forceDiff;
+  } else {
+    const s1Correct = app.sections[0].score;
+    if (s1Correct >= 9) diff = "hard";
+    else if (s1Correct >= 5) diff = "medium";
+    else diff = "easy";
+  }
+  const section2 = {
+    code:"Q2",
+    difficulty:diff,
+    questions: pickQuestions(diff, SECTION_DEFS.Q2.count),
+    answers:Array(SECTION_DEFS.Q2.count).fill(null),
+    flagged:Array(SECTION_DEFS.Q2.count).fill(false),
+    currentIndex:0,
+    secondsRemaining: app.mult == null ? null : Math.round(SECTION_DEFS.Q2.minutes * 60 * app.mult),
+    completed:false,
+    score:0
+  };
+  app.sections.push(section2);
+}
+
+function sec(){ return app.sections[app.sectionPointer]; }
+function curQ(){ return sec().questions[sec().currentIndex]; }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SCORING
+// ─────────────────────────────────────────────────────────────────────────────
+function isCorrect(q, ans){
+  if (ans == null) return false;
+  if (q.qtype === "MC1" || q.qtype === "QC") return ans === q.answer;
+  if (q.qtype === "MCN") return arrEq(ans, q.answer);
+  if (q.qtype === "NE")  return neEq(ans, q.answer);
+  return false;
+}
+
+function studentText(q, ans){
+  if (ans == null) return "No answer";
+  if (q.qtype === "MC1" || q.qtype === "QC") return q.choices[ans];
+  if (q.qtype === "MCN") return ans.length ? ans.map(i => q.choices[i]).join(", ") : "No answer";
+  if (q.qtype === "NE")  return String(ans);
+  return "—";
+}
+
+function correctText(q){
+  if (q.qtype === "MC1" || q.qtype === "QC") return q.choices[q.answer];
+  if (q.qtype === "MCN") return q.answer.map(i => q.choices[i]).join(", ");
+  if (q.qtype === "NE")  return String(q.answer);
+  return "—";
+}
+
+// Rough GRE Quant scaled-score estimate: 130–170 scale.
+// Weighs raw correct + Section 2 difficulty boost.
+function estimateScore(){
+  let raw = 0, total = 0;
+  app.sections.forEach(s => { raw += s.score; total += s.questions.length; });
+  const pct = total ? raw / total : 0;
+  let base = 130 + Math.round(pct * 40); // 130 (0%) → 170 (100%)
+  // Difficulty adjustment for Section 2
+  const s2 = app.sections[1];
+  if (s2) {
+    if (s2.difficulty === "hard")   base += Math.round(s2.score * 0.4);
+    if (s2.difficulty === "medium") base += 0;
+    if (s2.difficulty === "easy")   base -= Math.round((s2.questions.length - s2.score) * 0.2);
+  }
+  base = Math.max(130, Math.min(170, base));
+  // Build a rough range
+  return { score: base, low: Math.max(130, base - 3), high: Math.min(170, base + 3), raw, total };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TIMER
+// ─────────────────────────────────────────────────────────────────────────────
+function startTimer(){
+  stopTimer();
+  const s = sec();
+  if (s.secondsRemaining == null) return;
+  timerHandle = setInterval(() => {
+    s.secondsRemaining--;
+    if (s.secondsRemaining <= 0) {
+      s.secondsRemaining = 0;
+      stopTimer();
+      autoAdvanceSection();
+    }
+    if (el("examScreen").classList.contains("active")) updateStatus();
+  }, 1000);
+}
+function stopTimer(){ if (timerHandle) { clearInterval(timerHandle); timerHandle = null; } }
+function autoAdvanceSection(){ finishSection(); }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RENDER EXAM
+// ─────────────────────────────────────────────────────────────────────────────
+function renderExam(){
+  const s = sec();
+  const q = curQ();
+  const def = SECTION_DEFS[s.code];
+
+  el("modeBadge").textContent = app.mode === "realistic" ? "Realistic" : "Tutor";
+  el("diffBadge").textContent = s.difficulty.charAt(0).toUpperCase() + s.difficulty.slice(1);
+  el("diffBadge").className = "pill diff-" + s.difficulty;
+  el("sectionTitle").textContent = def.name;
+  el("sectionMeta").textContent = "Question " + (s.currentIndex + 1) + " of " + s.questions.length;
+  el("progressFill").style.width = ((s.currentIndex + 1) / s.questions.length * 100) + "%";
+
+  // Build question area
+  const area = el("questionArea");
+  area.textContent = "";
+
+  // Stem (always shown if present)
+  if (q.stem) {
+    const stemEl = ce("div", "question-stem");
+    stemEl.textContent = q.stem;
+    area.appendChild(stemEl);
+  }
+
+  // Type-specific rendering
+  if (q.qtype === "QC") renderQC(area, q, s);
+  else if (q.qtype === "MC1") renderMC(area, q, s, "single");
+  else if (q.qtype === "MCN") renderMC(area, q, s, "multi");
+  else if (q.qtype === "NE") renderNE(area, q, s);
+
+  const flagged = s.flagged[s.currentIndex];
+  el("flagBtn").textContent = flagged ? "Unmark Review" : "Mark for Review";
+
+  const isLast = s.currentIndex === s.questions.length - 1;
+  el("prevBtn").disabled = s.currentIndex === 0;
+  el("nextBtn").textContent = isLast ? "Review Section" : "Next";
+
+  updateStatus();
+  renderMap();
+  showScreen("exam");
+}
+
+function renderQC(area, q, s){
+  const instr = ce("div", "qc-instr");
+  instr.textContent = "Compare Quantity A and Quantity B.";
+  area.appendChild(instr);
+
+  const grid = ce("div", "qc-grid");
+  ["A","B"].forEach(letter => {
+    const box = ce("div", "qc-box");
+    const lab = ce("div", "qc-label");
+    lab.textContent = "Quantity " + letter;
+    const val = ce("div", "qc-value");
+    val.textContent = letter === "A" ? q.qtyA : q.qtyB;
+    box.appendChild(lab);
+    box.appendChild(val);
+    grid.appendChild(box);
+  });
+  area.appendChild(grid);
+
+  if (q.stem) {
+    // already rendered
+  }
+
+  // 4 standard QC choices as single-select
+  renderChoices(area, q, s, "single");
+}
+
+function renderMC(area, q, s, kind){
+  if (kind === "multi") {
+    const note = ce("div", "multi-instr");
+    note.textContent = "Select ALL that apply.";
+    area.appendChild(note);
+  }
+  renderChoices(area, q, s, kind);
+}
+
+function renderChoices(area, q, s, kind){
+  const wrap = ce("div", "choices");
+  const selected = s.answers[s.currentIndex];
+  q.choices.forEach((choiceText, idx) => {
+    const isSel = kind === "single"
+      ? selected === idx
+      : Array.isArray(selected) && selected.includes(idx);
+    const btn = ce("button", "choice " + kind + (isSel ? " selected" : ""));
+    btn.type = "button";
+    const letter = ce("div", "choice-letter");
+    const span = ce("span"); span.textContent = String.fromCharCode(65 + idx);
+    letter.appendChild(span);
+    const text = ce("div", "choice-text");
+    text.textContent = choiceText;
+    btn.appendChild(letter);
+    btn.appendChild(text);
+    btn.addEventListener("click", () => selectChoice(idx, kind));
+    wrap.appendChild(btn);
+  });
+  area.appendChild(wrap);
+}
+
+function renderNE(area, q, s){
+  const wrap = ce("div", "ne-input-wrap");
+  const input = ce("input"); input.type = "text"; input.id = "neInput";
+  input.placeholder = "Type your answer";
+  if (s.answers[s.currentIndex] != null) input.value = s.answers[s.currentIndex];
+  input.addEventListener("input", () => {
+    s.answers[s.currentIndex] = input.value.trim() === "" ? null : input.value.trim();
+    renderMap();
+  });
+  wrap.appendChild(input);
+  const help = ce("div", "ne-help");
+  help.textContent = "Enter as a number or decimal. Equivalent forms (e.g. 0.5 vs 1/2) are allowed where unambiguous.";
+  wrap.appendChild(help);
+  area.appendChild(wrap);
+  setTimeout(() => input.focus(), 30);
+}
+
+function selectChoice(idx, kind){
+  const s = sec();
+  if (kind === "single") {
+    s.answers[s.currentIndex] = idx;
+  } else {
+    let cur = s.answers[s.currentIndex];
+    if (!Array.isArray(cur)) cur = [];
+    const at = cur.indexOf(idx);
+    if (at >= 0) cur.splice(at, 1); else cur.push(idx);
+    s.answers[s.currentIndex] = cur.length ? cur : null;
+  }
+  renderExam();
+}
+
+function updateStatus(){
+  const s = sec();
+  const secs = s.secondsRemaining;
+  const isDanger = secs != null && secs <= 60;
+  const isWarn = secs != null && secs <= 180 && !isDanger;
+  const box = el("statusBox");
+  box.className = "status-box" + (isDanger ? " danger-time" : isWarn ? " warn-time" : "");
+  el("statusTime").textContent = fmtTime(secs);
+  el("statusCount").textContent = (s.currentIndex + 1) + " / " + s.questions.length;
+}
+
+function renderMap(){
+  const s = sec();
+  const grid = el("reviewGrid");
+  grid.textContent = "";
+  s.questions.forEach((_, idx) => {
+    const chip = ce("button", "qchip");
+    if (s.answers[idx] != null && (!Array.isArray(s.answers[idx]) || s.answers[idx].length)) chip.classList.add("answered");
+    if (s.flagged[idx]) chip.classList.add("flagged");
+    if (s.currentIndex === idx) chip.classList.add("current");
+    chip.textContent = idx + 1;
+    chip.addEventListener("click", () => { sec().currentIndex = idx; renderExam(); });
+    grid.appendChild(chip);
+  });
+  el("qmapNote").textContent = "Click any number to jump. Yellow border = flagged.";
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ACTIONS
+// ─────────────────────────────────────────────────────────────────────────────
+function nextAction(){
+  const s = sec();
+  if (s.currentIndex < s.questions.length - 1) {
+    s.currentIndex++;
+    renderExam();
+  } else {
+    showSectionReview();
+  }
+}
+
+function prevAction(){
+  const s = sec();
+  if (s.currentIndex > 0) {
+    s.currentIndex--;
+    renderExam();
+  }
+}
+
+function toggleFlag(){
+  const s = sec();
+  s.flagged[s.currentIndex] = !s.flagged[s.currentIndex];
+  renderExam();
+}
+
+function showSectionReview(){
+  const s = sec();
+  el("reviewTitle").textContent = "Review " + SECTION_DEFS[s.code].name;
+  const grid = el("bigReviewGrid");
+  grid.textContent = "";
+  s.questions.forEach((_, idx) => {
+    const chip = ce("button", "qchip");
+    const a = s.answers[idx];
+    const answered = a != null && (!Array.isArray(a) || a.length);
+    if (answered) chip.classList.add("answered");
+    if (s.flagged[idx]) chip.classList.add("flagged");
+    chip.textContent = idx + 1;
+    chip.addEventListener("click", () => { sec().currentIndex = idx; renderExam(); });
+    grid.appendChild(chip);
+  });
+  const answeredCount = s.answers.filter(a => a != null && (!Array.isArray(a) || a.length)).length;
+  const flaggedCount = s.flagged.filter(Boolean).length;
+  el("reviewSummary").textContent =
+    "Answered: " + answeredCount + " of " + s.questions.length + " · Flagged: " + flaggedCount;
+  showScreen("sectionReview");
+}
+
+function finishSection(){
+  stopTimer();
+  const s = sec();
+  let score = 0;
+  s.questions.forEach((q, i) => { if (isCorrect(q, s.answers[i])) score++; });
+  s.score = score;
+  s.completed = true;
+
+  if (app.sectionPointer === 0) {
+    // Build Section 2 with adapted difficulty
+    buildSection2();
+    showSectionTransition();
+  } else {
+    finishExam();
+  }
+}
+
+function showSectionTransition(){
+  const s1 = app.sections[0];
+  const s2 = app.sections[1];
+  el("transTitle").textContent = "Section 1 complete";
+  el("transScore").textContent = s1.score + " / " + s1.questions.length;
+  el("transMsg").textContent = "Section 1 is locked. You cannot return to it.";
+  let adaptMsg = "";
+  if (app.forceDiff !== "auto") {
+    adaptMsg = "Section 2 difficulty is forced to " + s2.difficulty.toUpperCase() + ".";
+  } else {
+    if (s2.difficulty === "hard") adaptMsg = "Strong performance — Section 2 is the HARD set (each correct counts more).";
+    else if (s2.difficulty === "medium") adaptMsg = "Section 2 is the MEDIUM set.";
+    else adaptMsg = "Section 2 is the EASY set.";
+  }
+  el("transAdaptMsg").textContent = adaptMsg;
+  showScreen("transition");
+}
+
+function beginNextSection(){
+  app.sectionPointer = 1;
+  startTimer();
+  renderExam();
+}
+
+function finishExam(){
+  stopTimer();
+  renderResults();
+  logSession();
+  showScreen("results");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RESULTS
+// ─────────────────────────────────────────────────────────────────────────────
+function renderResults(){
+  const est = estimateScore();
+  const header = el("resultsHeader");
+  header.textContent = "";
+
+  const big = ce("div", "big-score");
+  big.textContent = "Estimated Quant: " + est.score + " (range " + est.low + "–" + est.high + ")";
+  header.appendChild(big);
+
+  const sub = ce("div");
+  sub.style.fontSize = "16px";
+  sub.style.color = "#374151";
+  sub.style.marginBottom = "10px";
+  sub.textContent = "Raw correct: " + est.raw + " / " + est.total;
+  header.appendChild(sub);
+
+  const body = el("resultsBody");
+  body.textContent = "";
+
+  app.sections.forEach(s => {
+    const sec = ce("div", "res-section");
+    const h = ce("h3");
+    h.textContent = SECTION_DEFS[s.code].name + " — " + s.score + " / " + s.questions.length +
+                    " (" + s.difficulty + " difficulty)";
+    sec.appendChild(h);
+    s.questions.forEach((q, i) => {
+      const ok = isCorrect(q, s.answers[i]);
+      const row = ce("div", "res-q " + (ok ? "correct" : "wrong"));
+      const head = ce("div");
+      head.style.fontWeight = "700";
+      head.style.marginBottom = "4px";
+      head.textContent = (ok ? "✓ " : "✗ ") + "Q" + (i + 1) + " · " + q.qtype + " · " + q.topic;
+      row.appendChild(head);
+
+      const stem = ce("div");
+      stem.style.fontSize = "14px";
+      stem.style.marginBottom = "4px";
+      let stemTxt = q.stem;
+      if (q.qtype === "QC") stemTxt = (q.stem ? q.stem + "  " : "") + "[A: " + q.qtyA + " vs B: " + q.qtyB + "]";
+      stem.textContent = stemTxt;
+      row.appendChild(stem);
+
+      const yours = ce("div"); yours.style.fontSize = "13px";
+      yours.textContent = "Your answer: " + studentText(q, s.answers[i]);
+      row.appendChild(yours);
+
+      const right = ce("div"); right.style.fontSize = "13px"; right.style.color = "#166534";
+      right.textContent = "Correct: " + correctText(q);
+      row.appendChild(right);
+
+      const expl = ce("div"); expl.style.fontSize = "12px"; expl.style.color = "#6b7280"; expl.style.marginTop = "4px";
+      expl.textContent = q.explanation;
+      row.appendChild(expl);
+
+      sec.appendChild(row);
+    });
+    body.appendChild(sec);
+  });
+}
+
+function shareResults(){
+  const est = estimateScore();
+  const name = (el("studentName").value || "Student").trim();
+  let text = "GRE Quant Practice — " + name + "\n";
+  text += "Estimated Quant score: " + est.score + " (" + est.low + "–" + est.high + ")\n";
+  text += "Raw correct: " + est.raw + " / " + est.total + "\n\n";
+  app.sections.forEach(s => {
+    text += SECTION_DEFS[s.code].name + " (" + s.difficulty + "): " + s.score + " / " + s.questions.length + "\n";
+  });
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(
+      () => alert("Summary copied to clipboard."),
+      () => alert(text)
+    );
+  } else {
+    alert(text);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SESSION LOGGING (compatible with /api/log + /api/sessions)
+// ─────────────────────────────────────────────────────────────────────────────
+function logSession(){
+  const studentName = (el("studentName").value || "Student").trim();
+  const est = estimateScore();
+  let totalCorrect = 0, totalItems = 0;
+  const sections = app.sections.map(s => {
+    let correct = 0;
+    const questions = s.questions.map((q, i) => {
+      const ok = isCorrect(q, s.answers[i]);
+      if (ok) correct++;
+      const ans = s.answers[i];
+      return {
+        id: q.id,
+        section: s.code,
+        topic: q.topic,
+        qtype: q.qtype,
+        difficulty: q.difficulty,
+        stem: q.qtype === "QC"
+          ? (q.stem ? q.stem + " " : "") + "[A: " + q.qtyA + " | B: " + q.qtyB + "]"
+          : q.stem,
+        choices: q.choices || [],
+        correctIndex: q.answer,
+        correctText: correctText(q),
+        studentIndex: ans,
+        studentText: studentText(q, ans),
+        correct: ok,
+        flagged: s.flagged[i] || false,
+        explanation: q.explanation
+      };
+    });
+    totalCorrect += correct;
+    totalItems += s.questions.length;
+    return { code: s.code, score: correct, total: s.questions.length, difficulty: s.difficulty, questions };
+  });
+
+  const payload = {
+    studentName,
+    timestamp: new Date().toISOString(),
+    sessionKind: "GRE",
+    mode: app.mode,
+    sessionType: "GRE_QUANT",
+    timerMode: app.timerMode,
+    forceDiff: app.forceDiff,
+    estimatedScore: est.score,
+    estimatedRange: [est.low, est.high],
+    totalCorrect,
+    totalItems,
+    sections
+  };
+
+  fetch("/api/log", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  }).catch(() => {});
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CALCULATOR
+// ─────────────────────────────────────────────────────────────────────────────
+const calc = { display:"0", prev:null, op:null, justEvaluated:false };
+function calcRender(){ el("calcDisplay").textContent = calc.display; }
+function calcInput(act){
+  if (/^[0-9]$/.test(act)) {
+    if (calc.justEvaluated) { calc.display = "0"; calc.justEvaluated = false; }
+    calc.display = calc.display === "0" ? act : calc.display + act;
+  } else if (act === ".") {
+    if (calc.justEvaluated) { calc.display = "0"; calc.justEvaluated = false; }
+    if (!calc.display.includes(".")) calc.display += ".";
+  } else if (act === "C") {
+    calc.display = "0"; calc.prev = null; calc.op = null; calc.justEvaluated = false;
+  } else if (act === "CE") {
+    calc.display = "0"; calc.justEvaluated = false;
+  } else if (act === "±") {
+    if (calc.display !== "0") calc.display = calc.display.startsWith("-") ? calc.display.slice(1) : "-" + calc.display;
+  } else if (act === "√") {
+    const v = parseFloat(calc.display);
+    if (!isNaN(v) && v >= 0) calc.display = String(Math.sqrt(v));
+    calc.justEvaluated = true;
+  } else if (["+","−","×","÷"].includes(act)) {
+    if (calc.prev != null && calc.op && !calc.justEvaluated) calcEval();
+    calc.prev = parseFloat(calc.display);
+    calc.op = act;
+    calc.justEvaluated = true;
+  } else if (act === "=") {
+    calcEval();
+  }
+  calcRender();
+}
+function calcEval(){
+  if (calc.prev == null || calc.op == null) return;
+  const cur = parseFloat(calc.display);
+  let r = 0;
+  switch (calc.op) {
+    case "+": r = calc.prev + cur; break;
+    case "−": r = calc.prev - cur; break;
+    case "×": r = calc.prev * cur; break;
+    case "÷": r = cur === 0 ? NaN : calc.prev / cur; break;
+  }
+  calc.display = isNaN(r) ? "Error" : String(r);
+  calc.prev = null; calc.op = null; calc.justEvaluated = true;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SESSION START + EVENT WIRING
+// ─────────────────────────────────────────────────────────────────────────────
+function startSession(){
+  app = buildSession();
+  el("inlineNotes").value = el("globalNotes").value;
+  startTimer();
+  renderExam();
+}
+
+el("startBtn").addEventListener("click", startSession);
+el("demoTutorBtn").addEventListener("click", () => {
+  el("mode").value = "tutor";
+  el("timerMode").value = "off";
+  startSession();
+});
+el("nextBtn").addEventListener("click", nextAction);
+el("prevBtn").addEventListener("click", prevAction);
+el("flagBtn").addEventListener("click", toggleFlag);
+el("reviewSectionBtn").addEventListener("click", showSectionReview);
+el("returnToSectionBtn").addEventListener("click", () => renderExam());
+el("submitSectionBtn").addEventListener("click", () => finishSection());
+el("transBeginBtn").addEventListener("click", beginNextSection);
+el("restartBtn").addEventListener("click", () => { stopTimer(); showScreen("setup"); });
+el("shareBtn").addEventListener("click", shareResults);
+el("saveNotesBtn").addEventListener("click", saveNotes);
+el("globalNotes").addEventListener("input", () => el("inlineNotes").value = el("globalNotes").value);
+el("inlineNotes").addEventListener("input", () => el("globalNotes").value = el("inlineNotes").value);
+
+el("calcBtn").addEventListener("click", () => el("calculator").classList.toggle("active"));
+el("calcCloseBtn").addEventListener("click", () => el("calculator").classList.remove("active"));
+document.querySelectorAll("#calculator .calc-btn").forEach(b => {
+  b.addEventListener("click", () => calcInput(b.getAttribute("data-act")));
+});
+
+document.addEventListener("keydown", e => {
+  if (!app || !el("examScreen").classList.contains("active")) return;
+  if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+  const k = e.key.toLowerCase();
+  if (k === "n") nextAction();
+  if (k === "p") prevAction();
+  if (k === "f") toggleFlag();
+});
+
+loadNotes();
+calcRender();
+</script>
+</body>
+</html>

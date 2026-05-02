@@ -49,13 +49,27 @@ function scoreColor(c, t) {
   return "#991b1b";
 }
 
+function escHtml(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
 function renderHTML(sessions) {
   const rows = sessions.map((s, si) => {
     const totalPct = pct(s.totalCorrect, s.totalItems);
     const color = scoreColor(s.totalCorrect, s.totalItems);
-    const sectionSummary = (s.sections || []).map(sec =>
-      `<span style="margin-right:12px"><strong>${sec.code}</strong>: ${sec.score ?? "?"}/${sec.total ?? "?"}</span>`
-    ).join("");
+    const isGre = s.sessionKind === "GRE";
+    const kindBadge = isGre
+      ? `<span style="margin-left:6px;font-size:11px;background:#ede9fe;color:#6d28d9;border-radius:4px;padding:2px 7px;font-weight:700">GRE QUANT</span>`
+      : `<span style="margin-left:6px;font-size:11px;background:#dbeafe;color:#1d4ed8;border-radius:4px;padding:2px 7px;font-weight:700">AFQT</span>`;
+    const sectionSummary = (s.sections || []).map(sec => {
+      const diff = sec.difficulty ? ` <span style="font-size:11px;color:#6b7280">(${escHtml(sec.difficulty)})</span>` : "";
+      return `<span style="margin-right:12px"><strong>${escHtml(sec.code)}</strong>: ${sec.score ?? "?"}/${sec.total ?? "?"}${diff}</span>`;
+    }).join("");
+    const estimated = isGre && s.estimatedScore
+      ? `<span style="margin-left:10px;font-size:12px;background:#f5f3ff;color:#6d28d9;border-radius:4px;padding:2px 7px;font-weight:700">~${s.estimatedScore}</span>`
+      : "";
 
     const questionRows = (s.sections || []).flatMap(sec =>
       (sec.questions || []).map((q, qi) => {
@@ -64,13 +78,14 @@ function renderHTML(sessions) {
         const border = correct ? "#bbf7d0" : "#fecaca";
         const icon = correct ? "✓" : "✗";
         const iconColor = correct ? "#166534" : "#991b1b";
-        const stemShort = (q.stem || "").replace(/PASSAGE:[\s\S]*?QUESTION:/i, "").trim().slice(0, 120);
+        const stemShort = (q.stem || "").replace(/PASSAGE:[\s\S]*?QUESTION:/i, "").trim().slice(0, 140);
+        const typeTag = q.qtype ? `<span style="background:#ede9fe;color:#6d28d9;border-radius:4px;padding:2px 6px;font-size:10px;font-weight:700;margin-right:4px">${escHtml(q.qtype)}</span>` : "";
         return `<tr style="background:${bg};border-bottom:1px solid ${border}">
           <td style="padding:8px 10px;font-weight:700;color:${iconColor};text-align:center;width:32px">${icon}</td>
-          <td style="padding:8px 10px;font-size:13px;color:#374151"><span style="background:#e5e7eb;border-radius:4px;padding:2px 6px;font-size:11px;font-weight:700;margin-right:6px">${sec.code}</span>${stemShort}${q.stem && q.stem.length > 120 ? "…" : ""}</td>
-          <td style="padding:8px 10px;font-size:13px;color:#374151">${q.studentText || "No answer"}</td>
-          <td style="padding:8px 10px;font-size:13px;color:#166534;font-weight:600">${q.correctText || ""}</td>
-          <td style="padding:8px 10px;font-size:12px;color:#6b7280;max-width:200px">${q.explanation || ""}</td>
+          <td style="padding:8px 10px;font-size:13px;color:#374151"><span style="background:#e5e7eb;border-radius:4px;padding:2px 6px;font-size:11px;font-weight:700;margin-right:6px">${escHtml(sec.code)}</span>${typeTag}${escHtml(stemShort)}${q.stem && q.stem.length > 140 ? "…" : ""}</td>
+          <td style="padding:8px 10px;font-size:13px;color:#374151">${escHtml(q.studentText || "No answer")}</td>
+          <td style="padding:8px 10px;font-size:13px;color:#166534;font-weight:600">${escHtml(q.correctText || "")}</td>
+          <td style="padding:8px 10px;font-size:12px;color:#6b7280;max-width:200px">${escHtml(q.explanation || "")}</td>
         </tr>`;
       })
     ).join("");
@@ -79,9 +94,11 @@ function renderHTML(sessions) {
     <div style="background:#fff;border:1px solid #d1d5db;border-radius:12px;margin-bottom:20px;overflow:hidden">
       <div style="padding:16px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;cursor:pointer;user-select:none" onclick="toggle(${si})">
         <div>
-          <span style="font-size:18px;font-weight:700;color:#111827">${s.studentName || "Student"}</span>
-          <span style="margin-left:12px;font-size:13px;color:#6b7280">${fmt(s.timestamp)}</span>
-          <span style="margin-left:10px;font-size:12px;background:#e5e7eb;border-radius:4px;padding:2px 7px">${s.sessionType || "FULL"} · ${s.mode || ""}</span>
+          <span style="font-size:18px;font-weight:700;color:#111827">${escHtml(s.studentName || "Student")}</span>
+          ${kindBadge}
+          <span style="margin-left:12px;font-size:13px;color:#6b7280">${escHtml(fmt(s.timestamp))}</span>
+          <span style="margin-left:10px;font-size:12px;background:#e5e7eb;border-radius:4px;padding:2px 7px">${escHtml(s.sessionType || "FULL")} · ${escHtml(s.mode || "")}</span>
+          ${estimated}
         </div>
         <div style="display:flex;align-items:center;gap:16px">
           <div style="font-size:13px;color:#374151">${sectionSummary}</div>
@@ -113,7 +130,7 @@ function renderHTML(sessions) {
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>AFQT Session Log</title>
+<title>Tutor Session Log (AFQT + GRE Quant)</title>
 <style>
   body { margin:0; font-family: -apple-system, Arial, sans-serif; background:#f4f6f8; color:#111827; }
   .wrap { max-width:1100px; margin:0 auto; padding:24px 16px; }
@@ -123,7 +140,7 @@ function renderHTML(sessions) {
 </head>
 <body>
 <div class="wrap">
-  <h1>AFQT Session Log</h1>
+  <h1>Tutor Session Log</h1>
   <p class="sub">${sessions.length} session${sessions.length !== 1 ? "s" : ""} recorded — click a row to expand question detail</p>
   ${rows}${empty}
 </div>
