@@ -33,6 +33,7 @@
   .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
   label { font-weight: 600; display: block; margin-bottom: 6px; }
   select, textarea, input[type=text] { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); font-size: 14px; background: #fff; font-family: inherit; }
+  input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
   textarea { min-height: 140px; resize: vertical; }
   .btn { border: 1px solid var(--line); background: white; padding: 10px 14px; border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 14px; font-family: inherit; }
   .btn.primary { background: var(--accent); border-color: var(--accent); color: white; }
@@ -108,6 +109,14 @@
   .res-q:last-child { border-bottom: none; }
   .res-q.correct { background: #f0fdf4; }
   .res-q.wrong { background: #fff1f2; }
+  .history-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 12px 0; }
+  .history-stat { border: 1px solid var(--line); border-radius: 8px; padding: 10px; background: #fff; }
+  .history-stat strong { display: block; font-size: 20px; color: var(--accent); }
+  .history-table-wrap { max-height: 280px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+  .history-empty { padding: 12px; color: var(--muted); }
+  .check-row { display: flex; gap: 10px; align-items: flex-start; margin: 12px 0; }
+  .check-row label { margin: 0; font-weight: 700; }
+  .check-row .subtle { font-size: 12px; margin-top: 2px; }
   @media (max-width: 800px) {
     .exam-shell { grid-template-columns: 1fr; }
     .exam-side { border-left: none; border-top: 1px solid var(--line); }
@@ -115,6 +124,7 @@
     .grid.two { grid-template-columns: 1fr; }
     .big-score { font-size: 38px; }
     .calc { width: calc(100% - 40px); }
+    .history-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
   .mode-nav { display: flex; gap: 8px; margin-bottom: 18px; }
   .mode-nav a { padding: 8px 18px; border-radius: 10px; border: 2px solid var(--accent); text-decoration: none; font-weight: 700; font-size: 14px; transition: background 0.15s, color 0.15s; }
@@ -178,6 +188,13 @@
           <label for="studentName">Student name <span style="font-weight:400;color:var(--muted)">(logged with results)</span></label>
           <input type="text" id="studentName" placeholder="e.g. Marcus" />
         </div>
+        <div class="check-row">
+          <input type="checkbox" id="skipMastered" checked />
+          <div>
+            <label for="skipMastered">Skip questions already answered correctly</label>
+            <div class="subtle">Uses saved question history in this browser. Previously missed questions stay in rotation until they are answered correctly.</div>
+          </div>
+        </div>
 
         <div class="row" style="margin-top:8px">
           <button class="btn primary" id="startBtn" style="font-size:16px;padding:12px 22px;">Start practice test</button>
@@ -204,6 +221,17 @@
           <div class="row" style="margin-top:8px">
             <button class="btn" id="saveNotesBtn">Save notes</button>
             <span class="subtle" id="saveNotesMsg"></span>
+          </div>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <strong>Saved question history</strong>
+          <p class="subtle" style="font-size:13px;margin:6px 0 8px">
+            Flashcard-style tracking for this browser. Right-once questions are skipped by default.
+          </p>
+          <div id="historySummary"></div>
+          <div id="historyList"></div>
+          <div class="row" style="margin-top:8px">
+            <button class="btn" id="resetHistoryBtn">Reset history</button>
           </div>
         </div>
       </div>
@@ -1173,6 +1201,7 @@ function neEq(student, correct){
 // NOTES (browser storage)
 // ─────────────────────────────────────────────────────────────────────────────
 const NOTES_KEY = "gre.tutor.notes.v1";
+const QUESTION_HISTORY_KEY = "gre.tutor.questionHistory.v1";
 function loadNotes(){
   try { el("globalNotes").value = localStorage.getItem(NOTES_KEY) || ""; } catch {}
 }
@@ -1184,17 +1213,162 @@ function saveNotes(){
   } catch {}
 }
 
+function blankQuestionHistory(){
+  return { version:1, questions:{} };
+}
+function loadQuestionHistory(){
+  try {
+    const raw = localStorage.getItem(QUESTION_HISTORY_KEY);
+    if (!raw) return blankQuestionHistory();
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || !parsed.questions) return blankQuestionHistory();
+    return parsed;
+  } catch {
+    return blankQuestionHistory();
+  }
+}
+function saveQuestionHistory(history){
+  try { localStorage.setItem(QUESTION_HISTORY_KEY, JSON.stringify(history)); } catch {}
+}
+function questionHistoryEntry(history, q){
+  return history.questions[q.id] || {
+    id:q.id,
+    topic:q.topic || "other",
+    qtype:q.qtype,
+    difficulty:q.difficulty,
+    stem:q.qtype === "QC"
+      ? (q.stem ? q.stem + " " : "") + "[A: " + q.qtyA + " | B: " + q.qtyB + "]"
+      : q.stem,
+    attempts:0,
+    correct:0,
+    wrong:0,
+    correctStreak:0,
+    lastCorrect:false,
+    lastSeenAt:null
+  };
+}
+function updateQuestionHistoryFromSession(){
+  const history = loadQuestionHistory();
+  app.sections.forEach(s => {
+    s.questions.forEach((q, i) => {
+      const ok = isCorrect(q, s.answers[i]);
+      const entry = questionHistoryEntry(history, q);
+      entry.topic = q.topic || "other";
+      entry.qtype = q.qtype;
+      entry.difficulty = q.difficulty;
+      entry.stem = q.qtype === "QC"
+        ? (q.stem ? q.stem + " " : "") + "[A: " + q.qtyA + " | B: " + q.qtyB + "]"
+        : q.stem;
+      entry.attempts++;
+      if (ok) {
+        entry.correct++;
+        entry.correctStreak++;
+      } else {
+        entry.wrong++;
+        entry.correctStreak = 0;
+      }
+      entry.lastCorrect = ok;
+      entry.lastSeenAt = new Date().toISOString();
+      history.questions[q.id] = entry;
+    });
+  });
+  saveQuestionHistory(history);
+  renderQuestionHistory();
+}
+function getQuestionHistoryStats(){
+  const history = loadQuestionHistory();
+  const entries = Object.values(history.questions || {});
+  const masteredIds = new Set(entries.filter(e => e.lastCorrect).map(e => e.id));
+  const repeatWrong = entries.filter(e => (e.wrong || 0) >= 2 && !e.lastCorrect).length;
+  return {
+    history,
+    entries,
+    attempted: entries.length,
+    mastered: masteredIds.size,
+    active: entries.filter(e => !e.lastCorrect).length,
+    repeatWrong,
+    masteredIds
+  };
+}
+function renderQuestionHistory(){
+  const summary = el("historySummary");
+  const list = el("historyList");
+  if (!summary || !list) return;
+  const stats = getQuestionHistoryStats();
+  summary.textContent = "";
+  list.textContent = "";
+
+  const statWrap = ce("div", "history-summary");
+  [
+    ["Attempted", stats.attempted],
+    ["Skipped", stats.mastered],
+    ["Still due", stats.active],
+    ["Wrong 2+", stats.repeatWrong],
+  ].forEach(([label, value]) => {
+    const box = ce("div", "history-stat");
+    const strong = ce("strong");
+    strong.textContent = value;
+    const small = ce("span");
+    small.textContent = label;
+    box.appendChild(strong);
+    box.appendChild(small);
+    statWrap.appendChild(box);
+  });
+  summary.appendChild(statWrap);
+
+  const dueEntries = stats.entries
+    .filter(e => !e.lastCorrect || e.wrong > 0)
+    .sort((a, b) => (b.wrong || 0) - (a.wrong || 0) || (b.attempts || 0) - (a.attempts || 0))
+    .slice(0, 30);
+  if (!dueEntries.length) {
+    const empty = ce("div", "history-empty");
+    empty.textContent = stats.entries.length ? "All saved questions have been answered correctly." : "No saved question attempts yet.";
+    list.appendChild(empty);
+    return;
+  }
+
+  const wrap = ce("div", "history-table-wrap");
+  const table = ce("table", "results-table");
+  const head = table.insertRow();
+  ["Question", "Topic", "Right", "Wrong", "Status"].forEach(label => {
+    const th = document.createElement("th");
+    th.textContent = label;
+    head.appendChild(th);
+  });
+  dueEntries.forEach(entry => {
+    const row = table.insertRow();
+    const qCell = row.insertCell();
+    qCell.textContent = entry.id + ": " + (entry.stem || "").slice(0, 90) + ((entry.stem || "").length > 90 ? "..." : "");
+    row.insertCell().textContent = topicLabel(entry.topic);
+    row.insertCell().textContent = entry.correct || 0;
+    row.insertCell().textContent = entry.wrong || 0;
+    row.insertCell().textContent = entry.lastCorrect ? "Answered correctly" : "Still due";
+  });
+  wrap.appendChild(table);
+  list.appendChild(wrap);
+}
+function resetQuestionHistory(){
+  if (!confirm("Reset saved GRE question history in this browser?")) return;
+  saveQuestionHistory(blankQuestionHistory());
+  renderQuestionHistory();
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // SESSION STATE
 // ─────────────────────────────────────────────────────────────────────────────
 let app = null;
 let timerHandle = null;
 
-function pickQuestions(difficulty, count){
+function pickQuestions(difficulty, count, skipMastered){
   const pool = QUESTION_BANK.filter(q => q.difficulty === difficulty);
-  const picked = shuffle(pool).slice(0, count);
+  const masteredIds = skipMastered ? getQuestionHistoryStats().masteredIds : new Set();
+  const duePool = pool.filter(q => !masteredIds.has(q.id));
+  const masteredPool = pool.filter(q => masteredIds.has(q.id));
+  const picked = shuffle(duePool).slice(0, count);
+  if (picked.length < count) picked.push(...shuffle(masteredPool).slice(0, count - picked.length));
+  const sourcePool = picked.length ? picked : pool;
   // pad if pool too small (shouldn't happen in normal use)
-  while (picked.length < count) picked.push(pool[picked.length % pool.length]);
+  while (picked.length < count) picked.push(sourcePool[picked.length % sourcePool.length]);
   return picked;
 }
 
@@ -1203,11 +1377,12 @@ function buildSession(){
   const tmr = el("timerMode").value;
   const forceDiff = el("forceDiff").value;
   const mult = getMultiplier(tmr);
+  const skipMastered = el("skipMastered").checked;
 
   const section1 = {
     code:"Q1",
     difficulty:"medium",
-    questions: pickQuestions("medium", SECTION_DEFS.Q1.count),
+    questions: pickQuestions("medium", SECTION_DEFS.Q1.count, skipMastered),
     answers:Array(SECTION_DEFS.Q1.count).fill(null),
     flagged:Array(SECTION_DEFS.Q1.count).fill(false),
     currentIndex:0,
@@ -1219,7 +1394,7 @@ function buildSession(){
     score:0
   };
   // Section 2 is built after Section 1 completes (so we know adapted difficulty)
-  return { mode, timerMode:tmr, forceDiff, mult, sectionPointer:0, sections:[section1] };
+  return { mode, timerMode:tmr, forceDiff, mult, skipMastered, sectionPointer:0, sections:[section1] };
 }
 
 function buildSection2(){
@@ -1236,7 +1411,7 @@ function buildSection2(){
   const section2 = {
     code:"Q2",
     difficulty:diff,
-    questions: pickQuestions(diff, SECTION_DEFS.Q2.count),
+    questions: pickQuestions(diff, SECTION_DEFS.Q2.count, app.skipMastered),
     answers:Array(SECTION_DEFS.Q2.count).fill(null),
     flagged:Array(SECTION_DEFS.Q2.count).fill(false),
     currentIndex:0,
@@ -1632,6 +1807,7 @@ function beginNextSection(){
 
 function finishExam(){
   stopTimer();
+  updateQuestionHistoryFromSession();
   renderResults();
   logSession();
   showScreen("results");
@@ -1668,6 +1844,7 @@ function renderResults(){
     sec.appendChild(h);
     s.questions.forEach((q, i) => {
       const ok = isCorrect(q, s.answers[i]);
+      const saved = questionHistoryEntry(loadQuestionHistory(), q);
       const row = ce("div", "res-q " + (ok ? "correct" : "wrong"));
       const head = ce("div");
       head.style.fontWeight = "700";
@@ -1690,6 +1867,14 @@ function renderResults(){
       const right = ce("div"); right.style.fontSize = "13px"; right.style.color = "#166534";
       right.textContent = "Correct: " + correctText(q);
       row.appendChild(right);
+
+      const lifetime = ce("div");
+      lifetime.style.fontSize = "12px";
+      lifetime.style.marginTop = "4px";
+      lifetime.style.color = saved.lastCorrect ? "#166534" : "#991b1b";
+      lifetime.textContent = "Saved history: right " + (saved.correct || 0) + " · wrong " + (saved.wrong || 0) +
+        " · " + (saved.lastCorrect ? "will be skipped next time" : "still due");
+      row.appendChild(lifetime);
 
       const expl = ce("div"); expl.style.fontSize = "12px"; expl.style.color = "#6b7280"; expl.style.marginTop = "4px";
       expl.textContent = q.explanation;
@@ -1718,6 +1903,13 @@ function shareResults(){
       text += topicLabel(topic) + ": " + v.correct + "/" + v.total + " (" + pct + "%)\n";
     });
   }
+  const historyStats = getQuestionHistoryStats();
+  text += "\nSaved Question History\n";
+  text += "Attempted: " + historyStats.attempted + "\n";
+  text += "Answered correctly and skipped next time: " + historyStats.mastered + "\n";
+  text += "Still due: " + historyStats.active + "\n";
+  text += "Wrong multiple times: " + historyStats.repeatWrong + "\n";
+
   const missedItems = [];
   app.sections.forEach(s => {
     s.questions.forEach((q, i) => {
@@ -1774,6 +1966,8 @@ function logSession(){
         studentIndex: ans,
         studentText: studentText(q, ans),
         correct: ok,
+        lifetimeCorrect: questionHistoryEntry(loadQuestionHistory(), q).correct || 0,
+        lifetimeWrong: questionHistoryEntry(loadQuestionHistory(), q).wrong || 0,
         flagged: s.flagged[i] || false,
         explanation: q.explanation
       };
@@ -1791,6 +1985,7 @@ function logSession(){
     sessionType: "GRE_QUANT",
     timerMode: app.timerMode,
     forceDiff: app.forceDiff,
+    skipMastered: app.skipMastered,
     estimatedScore: est.score,
     estimatedRange: [est.low, est.high],
     totalCorrect,
@@ -1919,6 +2114,7 @@ el("transBeginBtn").addEventListener("click", beginNextSection);
 el("restartBtn").addEventListener("click", () => { stopTimer(); showScreen("setup"); });
 el("shareBtn").addEventListener("click", shareResults);
 el("saveNotesBtn").addEventListener("click", saveNotes);
+el("resetHistoryBtn").addEventListener("click", resetQuestionHistory);
 el("globalNotes").addEventListener("input", () => el("inlineNotes").value = el("globalNotes").value);
 el("inlineNotes").addEventListener("input", () => el("globalNotes").value = el("inlineNotes").value);
 
@@ -1942,6 +2138,7 @@ document.addEventListener("keydown", e => {
 });
 
 loadNotes();
+renderQuestionHistory();
 calcRender();
 </script>
 </body>
