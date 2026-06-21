@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Adaptive AFQT Tutor</title>
+  <link rel="stylesheet" href="/adaptive_tutor.css" />
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div>
+        <h1>Adaptive AFQT Tutor</h1>
+        <p>Free-play AFQT vocab and math practice with instant feedback, adaptive difficulty, time-on-question logging, and tutor dashboard sync.</p>
+      </div>
+      <div class="badges">
+        <span class="pill good">AFQT adaptive on</span>
+        <span class="pill warn">GIV / GRE tutor hidden</span>
+      </div>
+    </header>
+
+    <section id="setup" class="card">
+      <div class="grid two">
+        <label>Student name<input id="studentName" value="AFQT Student" /></label>
+        <label>Focus<select id="focus"><option value="mixed">Mixed vocab + math</option><option value="vocab">Vocab only</option><option value="math">Math only</option></select></label>
+        <label>Starting difficulty<select id="difficulty"><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option></select></label>
+        <label>Feedback<select id="feedbackMode"><option value="instant" selected>Instant after each answer</option><option value="manual">After tapping Check</option></select></label>
+      </div>
+      <div class="row actions">
+        <button id="startBtn" class="btn primary">Start free play</button>
+        <button id="resetBtn" class="btn">Reset local history</button>
+        <a class="btn" href="/api/sessions?key=tutor">Tutor dashboard</a>
+      </div>
+      <p class="tiny">Each answer is saved locally and sent to <code>/api/log</code>. The dashboard remains protected by the existing tutor key.</p>
+    </section>
+
+    <section id="practice" class="card hidden">
+      <div class="row spread">
+        <div><span id="qNum" class="pill">Question 1</span><span id="qTopic" class="pill">Topic</span><span id="qDiff" class="pill">Medium</span></div>
+        <div class="tiny">Time: <strong id="timer">0s</strong></div>
+      </div>
+      <div class="progress"><div id="progressFill"></div></div>
+      <div id="stem" class="stem"></div>
+      <div id="languageHelp" class="feedback warn hidden"></div>
+      <div id="choices" class="choices"></div>
+      <div id="feedback" class="feedback hidden"></div>
+      <div class="row actions"><button id="checkBtn" class="btn primary" disabled>Check answer</button><button id="nextBtn" class="btn" disabled>Next question</button><button id="finishBtn" class="btn">Finish + sync</button></div>
+    </section>
+
+    <section class="grid two">
+      <div class="card"><h2>What the tutor sees</h2><div id="summary" class="stats"></div><div id="weaknesses"></div></div>
+      <div class="card"><h2>Recent attempts</h2><div id="history" class="history tiny"></div></div>
+    </section>
+  </main>
+  <script src="/adaptive_tutor.js"></script>
+</body>
+</html>
