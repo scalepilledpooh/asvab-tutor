@@ -1,7 +1,9 @@
 {
   "rewrites": [
-    { "source": "/", "destination": "/afqt_simulator.html" },
-    { "source": "/gre", "destination": "/gre_simulator.html" },
-    { "source": "/asvab", "destination": "/afqt_simulator.html" }
+    { "source": "/", "destination": "/adaptive_tutor.html" },
+    { "source": "/asvab", "destination": "/adaptive_tutor.html" },
+    { "source": "/adaptive", "destination": "/adaptive_tutor.html" },
+    { "source": "/legacy-asvab", "destination": "/afqt_simulator.html" },
+    { "source": "/legacy-gre", "destination": "/gre_simulator.html" }
   ]
 }
