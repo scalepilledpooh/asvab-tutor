@@ -25,13 +25,14 @@
         <label>Focus<select id="focus"><option value="mixed">Mixed vocab + math</option><option value="vocab">Vocab only</option><option value="math">Math only</option></select></label>
         <label>Starting difficulty<select id="difficulty"><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option></select></label>
         <label>Feedback<select id="feedbackMode"><option value="instant" selected>Instant after each answer</option><option value="manual">After tapping Check</option></select></label>
+        <label>Tutor dashboard key<input id="dashboardKey" type="password" placeholder="Enter dashboard key" autocomplete="current-password" /></label>
       </div>
       <div class="row actions">
         <button id="startBtn" class="btn primary">Start free play</button>
         <button id="resetBtn" class="btn">Reset local history</button>
-        <a class="btn" href="/api/sessions?key=tutor">Tutor dashboard</a>
+        <button id="dashboardBtn" class="btn" type="button">Open tutor dashboard</button>
       </div>
-      <p class="tiny">Each answer is saved locally and sent to <code>/api/log</code>. The dashboard remains protected by the existing tutor key.</p>
+      <p class="tiny">Each answer is saved locally and sent to <code>/api/log</code>. The dashboard remains protected by the existing Vercel <code>TUTOR_KEY</code>.</p>
     </section>
 
     <section id="practice" class="card hidden">
@@ -53,5 +54,6 @@
     </section>
   </main>
   <script src="/adaptive_tutor.js"></script>
+  <script src="/adaptive_dashboard.js"></script>
 </body>
 </html>
